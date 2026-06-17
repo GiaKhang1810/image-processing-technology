@@ -1,4 +1,5 @@
 from os import makedirs
+from os.path import join
 from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 
 class Preprocess:
@@ -30,7 +31,7 @@ class Preprocess:
             image = image.point(lambda pixel: 255 if pixel > self.threshold else 0)
 
             if name is not None:
-                endpoint = makedirs(self.processed_dir, name)
+                endpoint = join(self.processed_dir, name)
                 image.save(endpoint)
 
             return image
