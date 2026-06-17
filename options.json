@@ -1,0 +1,74 @@
+[
+    {
+        "mode": "raw",
+        "threshold": 0
+    },
+    {
+        "mode": "gray",
+        "threshold": 0
+    },
+    {
+        "mode": "gray",
+        "threshold": 50
+    },
+    {
+        "mode": "gray",
+        "threshold": 100
+    },
+    {
+        "mode": "gray",
+        "threshold": 150
+    },
+    {
+        "mode": "contrast",
+        "threshold": 0
+    },
+    {
+        "mode": "contrast",
+        "threshold": 30
+    },
+    {
+        "mode": "contrast",
+        "threshold": 60
+    },
+    {
+        "mode": "contrast",
+        "threshold": 100
+    },
+    {
+        "mode": "contrast",
+        "threshold": 120
+    },
+    {
+        "mode": "contrast",
+        "threshold": 150
+    },
+    {
+        "mode": "binary",
+        "threshold": 100
+    },
+    {
+        "mode": "binary",
+        "threshold": 120
+    },
+    {
+        "mode": "binary",
+        "threshold": 140
+    },
+    {
+        "mode": "binary",
+        "threshold": 150
+    },
+    {
+        "mode": "binary",
+        "threshold": 160
+    },
+    {
+        "mode": "binary",
+        "threshold": 180
+    },
+    {
+        "mode": "binary",
+        "threshold": 200
+    }
+]

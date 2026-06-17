@@ -1,5 +1,7 @@
-__pycache__
-output
+__pycache__/
+.venv/
+output/
+errorlog/
 
 gendata.py
 *.log
