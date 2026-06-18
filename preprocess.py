@@ -1,105 +1,160 @@
-from os import makedirs
-from os.path import join
+from pathlib import Path
+from numpy import asarray, arange, clip, uint8
 from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 
 
-class Preprocess:
-    def __init__(self, processed_dir: str | None = None) -> None:
-        # Nếu có truyền thư mục lưu ảnh đã xử lý thì tạo thư mục đó.
-        if processed_dir is not None:
-            makedirs(processed_dir, exist_ok=True)
+class Preprocesser:
+    def __init__(
+        self,
+        processed_dir: Path | None,
+        resize_scale: int = 2,
+        median_filter_size: int = 3,
+        contrast_factor: float = 2.0,
+        background_blur_radius: int = 25,
+        auto_rotate: bool = True,
+        save_processed: bool = True
+    ) -> None:
+        if not processed_dir.is_dir():
+            processed_dir.mkdir(parents=True, exist_ok=True)
 
-        # Lưu lại đường dẫn thư mục chứa ảnh đã xử lý.
-        self.processed_dir = processed_dir
+        self.__processed_dir = processed_dir
+        self.__resize_scale = resize_scale
+        self.__median_filter_size = median_filter_size
+        self.__contrast_factor = contrast_factor
+        self.__background_blur_radius = background_blur_radius
+        self.__auto_rotate = auto_rotate
+        self.__save_processed = save_processed
 
-    def save_image(self, image: Image.Image, name: str | None) -> None:
-        # Nếu không truyền tên file thì không lưu ảnh.
+    def __save(self, image: Image.Image, name: str | None) -> None:
+        if not self.__save_processed:
+            return
+
         if name is None:
             return
 
-        # Nếu không có thư mục lưu ảnh thì không lưu ảnh.
-        if self.processed_dir is None:
+        if self.__processed_dir is None:
             return
 
-        # Tạo đường dẫn đầy đủ đến file ảnh cần lưu.
-        endpoint = join(self.processed_dir, name)
+        endpoint = self.__processed_dir / name
 
-        # Lưu ảnh đã xử lý ra file.
         image.save(endpoint)
 
-    def modify(
-        self,
-        path: str,
-        mode: str = "contrast",
-        threshold: int = 150,
-        name: str | None = None,
-    ) -> Image.Image:
-        # Mở ảnh từ đường dẫn đầu vào.
-        image = Image.open(path)
+    def __remove(self, image: Image.Image, threshold: int) -> Image.Image:
+        gray = ImageOps.grayscale(image)
+        background = gray.filter(
+            ImageFilter.GaussianBlur(radius=self.__background_blur_radius)
+        )
 
-        # Chuyển ảnh sang RGB để tránh lỗi ảnh có alpha channel.
-        image = image.convert("RGB")
+        gray_np = asarray(gray).astype("float32")
+        bg_np = asarray(background).astype("float32")
 
-        # Nếu mode là raw thì giữ nguyên ảnh gốc.
-        if mode == "raw":
-            # Lưu ảnh raw nếu có truyền name.
-            self.save_image(image, name)
+        bg_np[bg_np == 0] = 1
+        normalized = gray_np / bg_np * 255
+        normalized = clip(normalized, 0, 255).astype(uint8)
+        removed = Image.fromarray(normalized)
+        removed = ImageOps.autocontrast(removed)
+        removed = ImageEnhance.Contrast(removed).enhance(self.__contrast_factor)
+        removed = removed.filter(ImageFilter.SHARPEN)
+        removed = removed.point(lambda pixel: 255 if pixel > threshold else 0)
 
-            # Trả về ảnh gốc.
-            return image
+        return removed
 
-        # Lấy kích thước ảnh ban đầu.
-        width, height = image.size
+    def __rotate(self, image: Image.Image) -> Image.Image:
+        max_angle = 15.0
+        coarse_step = 1.0
+        fine_step = 0.2
 
-        # Phóng to ảnh lên 2 lần để chữ rõ hơn khi OCR.
-        image = image.resize((width * 2, height * 2), Image.Resampling.LANCZOS)
+        gray = ImageOps.grayscale(image)
+        gray = ImageOps.autocontrast(gray)
+        gray_np = asarray(gray)
 
-        # Chuyển ảnh sang grayscale.
-        image = ImageOps.grayscale(image)
+        binary_np = ((gray_np < 200) * 255).astype(uint8)
+        binary_image = Image.fromarray(binary_np)
 
-        # Nếu mode là gray thì chỉ xử lý đến grayscale.
-        if mode == "gray":
-            # Lưu ảnh grayscale nếu có truyền name.
-            self.save_image(image, name)
+        def score_angle(angle: float) -> float:
+            rotated = binary_image.rotate(
+                angle, resample=Image.Resampling.BICUBIC, expand=True, fillcolor=0
+            )
 
-            # Trả về ảnh grayscale.
-            return image
+            rotated_np = asarray(rotated)
+            horizontal_hist = rotated_np.sum(axis=1)
 
-        # Tăng độ tương phản của ảnh.
-        image = ImageEnhance.Contrast(image).enhance(2.0)
+            return float(horizontal_hist.var())
 
-        # Làm nét ảnh để chữ rõ hơn.
-        image = image.filter(ImageFilter.SHARPEN)
+        best_angle = 0.0
+        best_score = -1.0
 
-        # Nếu mode là contrast thì dừng sau bước tăng tương phản và làm nét.
-        if mode == "contrast":
-            # Lưu ảnh contrast nếu có truyền name.
-            self.save_image(image, name)
+        for angle in arange(-max_angle, max_angle + coarse_step, coarse_step):
+            current_score = score_angle(float(angle))
 
-            # Trả về ảnh đã tăng tương phản.
-            return image
+            if current_score > best_score:
+                best_score = current_score
+                best_angle = float(angle)
 
-        # Khử nhiễu nhẹ bằng bộ lọc trung vị.
-        image = image.filter(ImageFilter.MedianFilter(size=3))
+        fine_start = best_angle - coarse_step
+        fine_end = best_angle + coarse_step + fine_step
 
-        # Nếu mode là binary thì chuyển ảnh sang đen trắng bằng threshold.
-        if mode == "binary":
-            # Pixel lớn hơn threshold thành trắng, ngược lại thành đen.
-            image = image.point(lambda pixel: 255 if pixel > threshold else 0)
+        for angle in arange(fine_start, fine_end, fine_step):
+            current_score = score_angle(float(angle))
+            if current_score > best_score:
+                best_score = current_score
+                best_angle = float(angle)
 
-        # Lưu ảnh cuối cùng nếu có truyền name.
-        self.save_image(image, name)
+        image = image.rotate(
+            angle=best_angle,
+            resample=Image.Resampling.BICUBIC,
+            expand=True,
+            fillcolor=(255, 255, 255),
+        )
 
-        # Trả về ảnh đã xử lý.
         return image
 
+    def modify(
+        self, image_path: str, mode: str, threshold: int, name: str | None
+    ) -> Image.Image:
+        image = Image.open(image_path)
+        image = image.convert("RGB")
 
-"""
-File này dùng Pillow để tiền xử lý ảnh trước khi đưa vào OCR.
-Class Preprocess hỗ trợ các mode xử lý gồm raw, gray, contrast và binary.
-Mode raw giữ nguyên ảnh gốc.
-Mode gray phóng to ảnh và chuyển sang ảnh xám.
-Mode contrast phóng to ảnh, chuyển xám, tăng tương phản và làm nét.
-Mode binary xử lý thêm bước khử nhiễu và chuyển ảnh về đen trắng bằng threshold.
-Ảnh sau xử lý sẽ được lưu vào "processed_dir" nếu có truyền name.
-"""
+        if mode == "raw":
+            self.__save(image, name)
+
+            return image
+
+        resize = self.__resize_scale
+        width, height = image.size
+
+        image = image.resize(
+            (width * resize, height * resize), Image.Resampling.LANCZOS
+        )
+
+        if self.__auto_rotate:
+            image = self.__rotate(image)
+
+        if mode == "background":
+            image = self.__remove(image, threshold)
+            self.__save(image, name)
+
+            return image
+
+        image = ImageOps.grayscale(image)
+
+        if mode == "gray":
+            self.__save(image, name)
+
+            return image
+
+        image = ImageEnhance.Contrast(image).enhance(self.__contrast_factor)
+        image = image.filter(ImageFilter.SHARPEN)
+
+        if mode == "contrast":
+            self.__save(image, name)
+
+            return image
+
+        image = image.filter(ImageFilter.MedianFilter(size=self.__median_filter_size))
+
+        if mode == "binary":
+            image = image.point(lambda pixel: 255 if pixel > threshold else 0)
+
+        self.__save(image, name)
+        return image

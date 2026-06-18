@@ -1,48 +1,26 @@
+from csv import QUOTE_ALL
 from argparse import ArgumentParser
-from os import makedirs
-from os.path import join
-from sklearn.model_selection import train_test_split
-from pandas import read_csv, DataFrame
+from pathlib import Path
 from traceback import print_exception
 from datetime import datetime
-from csv import QUOTE_ALL
-from json import load
+from time import perf_counter
+from typing import TypedDict
 
-from metrics import cer, accuracy
+from sklearn.model_selection import train_test_split
+from pandas import read_csv, DataFrame
+
+from metrics import metricser
 from model import Model
-from preprocess import Preprocess
-
-# Khai báo các biến mặc định
-DATASET_DIR = "dataset"
-IMAGE_DIR = join(DATASET_DIR, "images")
-LABEL_PATH = join(DATASET_DIR, "labels.csv")
-OUTPUT_DIR = "output"
-PROCESSED_DIR = join(OUTPUT_DIR, "processed")
-ERRORLOG_DIR = "errorlog"
+from preprocess import Preprocesser
+from utils import clean_text_for_csv, read_options, ModesDict
 
 
-# Hàm này dùng để làm sạch text trước khi ghi vào CSV.
-def clean_text_for_csv(text: str) -> str:
-    # Ép dữ liệu về kiểu string để tránh lỗi nếu dữ liệu là None hoặc NaN.
-    text = str(text)
-
-    # Thay ký tự xuống dòng kiểu Windows hoặc Linux bằng khoảng trắng.
-    text = text.replace("\r", " ")
-    text = text.replace("\n", " ")
-
-    # Thay ký tự tab bằng khoảng trắng.
-    text = text.replace("\t", " ")
-
-    # Xóa khoảng trắng dư và gom text về một dòng.
-    text = " ".join(text.split())
-
-    # Trả về text đã được làm sạch.
-    return text
+class BestOption(TypedDict):
+    mode: str
+    threshold: int
 
 
-# Hàm này dùng để lưu DataFrame ra file CSV.
 def save_csv(df: DataFrame, path: str) -> None:
-    # Lưu CSV với UTF-8 BOM để Excel đọc tiếng Việt tốt hơn.
     df.to_csv(
         path,
         index=False,
@@ -52,110 +30,16 @@ def save_csv(df: DataFrame, path: str) -> None:
     )
 
 
-# Hàm này dùng để đánh giá một tập dữ liệu bằng một model và một kiểu xử lý ảnh.
-def evaluate(
-    df: DataFrame, mode: str, model: Model, process: Preprocess, threshold: int
-) -> DataFrame:
-    rows = []
-
-    # Duyệt từng dòng trong DataFrame labels.
-    for _, row in df.iterrows():
-        # Lấy thông tin
-        filename = row["filename"]
-        expected_text = row["text"]
-
-        # Xử lý ảnh bằng class Preprocess.
-        image = process.modify(
-            path=join(IMAGE_DIR, filename),
-            mode=mode,
-            name=f"processed_{model.model}_{mode}_{threshold}_{filename}",
-            threshold=threshold,
-        )
-
-        # Đưa ảnh đã xử lý vào model OCR để đọc text.
-        predicted_text = model.read(image)
-
-        # Tính CER giữa text đúng và text OCR dự đoán.
-        cer_score = cer(expected_text, predicted_text)
-
-        # Tính accuracy dựa trên CER.
-        accuracy_score = accuracy(cer_score)
-
-        # Làm sạch texttrước khi ghi CSV.
-        expected_text_csv = clean_text_for_csv(expected_text)
-        predicted_text_csv = clean_text_for_csv(predicted_text)
-
-        # Thêm kết quả của ảnh hiện tại vào danh sách rows.
-        rows.append(
-            {
-                "filename": filename,
-                "model": model.model,
-                "mode": mode,
-                "threshold": threshold,
-                "expected": expected_text_csv,
-                "predicted": predicted_text_csv,
-                "cer": cer_score,
-                "accuracy": accuracy_score,
-            }
-        )
-
-    # Chuyển danh sách rows thành DataFrame và trả về.
-    return DataFrame(rows)
-
-
-# Hàm này dùng để tìm cấu hình xử lý ảnh tốt nhất trên tập train.
-def find_best_threshold(
-    train_df: DataFrame, model: Model, process: Preprocess
-) -> tuple[dict[str, str | int], float]:
-    # Mở file options.json để đọc danh sách các cấu hình xử lý ảnh cần thử.
-    with open("options.json", "r", encoding="utf-8") as file:
-        # Đọc nội dung JSON thành list/dict Python.
-        options = load(file)
-
-    # Gán cấu hình tốt nhất ban đầu là cấu hình đầu tiên trong options.json.
-    best_option = options[0]
-    best_score = -1.0
-
-    # Duyệt từng cấu hình xử lý ảnh trong options.json.
-    for option in options:
-        # Đánh giá tập train với cấu hình hiện tại.
-        result_df = evaluate(
-            df=train_df,
-            model=model,
-            process=process,
-            mode=option["mode"],
-            threshold=option["threshold"],
-        )
-
-        # Tính accuracy trung bình của cấu hình hiện tại.
-        mean_accuracy = result_df["accuracy"].mean()
-
-        print(
-            f"Mode {option['mode']}, "
-            f"threshold {option['threshold']}: "
-            f"accuracy = {mean_accuracy:.4f}"
-        )
-
-        # Nếu cấu hình hiện tại tốt hơn cấu hình tốt nhất trước đó thì cập nhật.
-        if mean_accuracy > best_score:
-            best_score = mean_accuracy
-            best_option = option
-
-    return best_option, best_score
-
-
-# Hàm này dùng để lưu file tổng kết kết quả cuối cùng.
 def save_summary(
     modelname: str,
-    best_option: dict[str, str | int],
+    best_option: BestOption,
     train_score: float,
     mean_test_cer: float,
     mean_test_accuracy: float,
+    output_dir: Path,
 ) -> str:
-    # Tạo đường dẫn file summary theo tên model.
-    summary_path = join(OUTPUT_DIR, f"{modelname}_summary.csv")
+    summary_path = output_dir / f"{modelname}_summary.csv"
 
-    # Tạo DataFrame chỉ gồm một dòng tổng kết.
     summary_df = DataFrame(
         [
             {
@@ -169,40 +53,194 @@ def save_summary(
         ]
     )
 
-    # Lưu DataFrame tổng kết ra CSV.
     save_csv(summary_df, summary_path)
 
     return summary_path
 
 
-# Hàm chính của chương trình.
+class PipeLine:
+    def __init__(self, model: Model, preprocesser: Preprocesser, dataset: Path) -> None:
+        self.__model = model
+        self.__preprocesser = preprocesser
+        self.__dataset = dataset
+
+    def evaluate(self, df: DataFrame, mode: str, threshold: int) -> DataFrame:
+        rows = []
+
+        total_preprocess_time = 0.0
+        total_ocr_time = 0.0
+        total_eval_time = perf_counter()
+
+        for _, row in df.iterrows():
+            filename: str = row["filename"]
+            expected_text: str = row["text"]
+
+            start_preprocess = perf_counter()
+
+            image = self.__preprocesser.modify(
+                image_path=self.__dataset / filename,
+                mode=mode,
+                threshold=threshold,
+                name=f"{self.__model.modelname}_{mode}_{threshold}_{filename}",
+            )
+
+            preprocess_time = perf_counter() - start_preprocess
+            start_ocr = perf_counter()
+
+            predicted_text = self.__model.read(image)
+
+            ocr_time = perf_counter() - start_ocr
+
+            accuracy_score, cer_score = metricser(expected_text, predicted_text)
+
+            total_time = preprocess_time + ocr_time
+            total_preprocess_time += preprocess_time
+            total_ocr_time += ocr_time
+
+            rows.append(
+                {
+                    "filename": filename,
+                    "model": self.__model.modelname,
+                    "mode": mode,
+                    "threshold": threshold,
+                    "expected": clean_text_for_csv(expected_text),
+                    "predicted": clean_text_for_csv(predicted_text),
+                    "cer": cer_score,
+                    "accuracy": accuracy_score,
+                    "preprocess_time": preprocess_time,
+                    "ocr_time": ocr_time,
+                    "total_time": total_time,
+                }
+            )
+
+        result_df = DataFrame(rows)
+        total_eval_time = perf_counter() - total_eval_time
+
+        print(
+            f"Evaluate mode={mode}, threshold={threshold} | "
+            f"preprocess={total_preprocess_time:.2f}s | "
+            f"ocr={total_ocr_time:.2f}s | "
+            f"total={total_eval_time:.2f}s"
+        )
+
+        return result_df
+
+    def findthreshold(
+        self, df: DataFrame, options: ModesDict
+    ) -> tuple[BestOption, float]:
+        best_option: BestOption | None = None
+        best_score = -1.0
+
+        def test_option(mode: str, threshold: int) -> None:
+            nonlocal best_option, best_score
+
+            result_df = self.evaluate(
+                df=df,
+                mode=mode,
+                threshold=threshold,
+            )
+
+            mean_accuracy = float(result_df["accuracy"].mean())
+            print(f"Mode {mode}, threshold {threshold}: accuracy = {mean_accuracy:.4f}")
+
+            if mean_accuracy > best_score:
+                best_score = mean_accuracy
+                best_option = {
+                    "mode": mode,
+                    "threshold": threshold,
+                }
+
+        if options["raw"]["enable"]:
+            test_option(
+                mode="raw",
+                threshold=options["raw"]["threshold"],
+            )
+
+        if options["gray"]["enable"]:
+            test_option(
+                mode="gray",
+                threshold=options["gray"]["threshold"],
+            )
+
+        if options["contrast"]["enable"]:
+            test_option(
+                mode="contrast",
+                threshold=options["contrast"]["threshold"],
+            )
+
+        if options["binary"]["enable"]:
+            for threshold in options["binary"]["thresholds"]:
+                test_option(
+                    mode="binary",
+                    threshold=threshold,
+                )
+
+        if options["background"]["enable"]:
+            for threshold in options["background"]["thresholds"]:
+                test_option(
+                    mode="background",
+                    threshold=threshold,
+                )
+
+        if best_option is None:
+            raise Exception("No preprocessing option is enabled.")
+
+        return best_option, best_score
+
+
 def main(modelname: str) -> None:
-    # Bọc toàn bộ chương trình bằng try để nếu lỗi thì ghi log.
+    options = read_options()
+
+    DATASET_DIR = Path(options["dataset"]["dataset_dir"])
+    IMAGE_DIR = DATASET_DIR / options["dataset"]["image_dir"]
+    LABEL_PATH = DATASET_DIR / options["dataset"]["label_path"]
+
+    OUTPUT_DIR = Path(options["output"]["output_dir"])
+    PROCESSED_DIR = OUTPUT_DIR / options["output"]["processed_dir"]
+    ERRORLOG_DIR = OUTPUT_DIR / options["output"]["errorlog_dir"]
+
     try:
-        # Tạo thư mục nếu chưa tồn tại.
-        makedirs(OUTPUT_DIR, exist_ok=True)
-        makedirs(PROCESSED_DIR, exist_ok=True)
-        makedirs(ERRORLOG_DIR, exist_ok=True)
+        DATASET_DIR.mkdir(parents=True, exist_ok=True)
+        IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+        ERRORLOG_DIR.mkdir(parents=True, exist_ok=True)
 
-        # Khởi tạo các object
-        preprocess = Preprocess(processed_dir=PROCESSED_DIR)
-        model = Model(model=modelname)
+        if not LABEL_PATH.is_file():
+            raise Exception(f"{LABEL_PATH} not found")
 
-        # Đọc file labels.csv thành DataFrame.
+        model = Model(modelname)
+
+        prepresser = Preprocesser(
+            processed_dir=PROCESSED_DIR,
+            resize_scale=options["preprocesser"]["resize_scale"],
+            median_filter_size=options["preprocesser"]["median_filter_size"],
+            contrast_factor=options["preprocesser"]["contrast_factor"],
+            background_blur_radius=options["preprocesser"]["background_blur_radius"],
+            auto_rotate=options["preprocesser"]["auto_rotate"],
+            save_processed=options["preprocesser"]["save_processed"],
+        )
+
+        pipeline = PipeLine(
+            model=model,
+            preprocesser=prepresser,
+            dataset=IMAGE_DIR,
+        )
+
         df = read_csv(LABEL_PATH)
-
-        # Chia dataset thành 80% train và 20% test.
         train_df, test_df = train_test_split(
-            df, test_size=0.2, random_state=42, shuffle=True
+            df,
+            test_size=options["dataset"]["test_size"],
+            random_state=options["dataset"]["random_state"],
+            shuffle=options["dataset"]["shuffle"],
         )
 
         print("===== START TRAINING =====")
         print(f"Using OCR: {modelname}")
         print("Finding best preprocessing threshold on train data...\n")
 
-        # Tìm cấu hình xử lý ảnh tốt nhất trên tập train.
-        best_option, train_score = find_best_threshold(
-            train_df=train_df, model=model, process=preprocess
+        best_option, train_score = pipeline.findthreshold(
+            df, options=options["preprocesser"]["modes"]
         )
 
         print(f"\nBest mode: {best_option['mode']}")
@@ -210,34 +248,24 @@ def main(modelname: str) -> None:
         print(f"Train accuracy: {train_score:.4f}")
         print("\nEvaluating on test data...")
 
-        # Tạo đường dẫn file kết quả chi tiết.
-        result_path = join(OUTPUT_DIR, f"{modelname}.csv")
+        result_path = OUTPUT_DIR / f"{modelname}.csv"
 
-        # Đánh giá tập test bằng cấu hình tốt nhất tìm được từ tập train.
-        test_result_df = evaluate(
+        test_result_df = pipeline.evaluate(
             df=test_df,
-            model=model,
-            process=preprocess,
             mode=best_option["mode"],
             threshold=best_option["threshold"],
         )
 
-        # Lưu kết quả chi tiết ra CSV.
-        save_csv(test_result_df, result_path)
-
-        # Tính accuracy trung bình trên tập test.
         mean_test_accuracy = test_result_df["accuracy"].mean()
-
-        # Tính CER trung bình trên tập test.
         mean_test_cer = test_result_df["cer"].mean()
 
-        # Lưu file summary tổng kết kết quả.
         summary_path = save_summary(
             modelname=modelname,
             best_option=best_option,
             train_score=train_score,
             mean_test_cer=mean_test_cer,
             mean_test_accuracy=mean_test_accuracy,
+            output_dir=OUTPUT_DIR,
         )
 
         print("\n===== FINAL RESULT =====")
@@ -247,31 +275,19 @@ def main(modelname: str) -> None:
         print(f"Test Accuracy: {mean_test_accuracy:.4f}")
         print(f"Saved detail result to: {result_path}")
         print(f"Saved summary result to: {summary_path}")
-
-    # Bắt tất cả lỗi xảy ra trong quá trình chạy chương trình.
     except Exception as error:
-        # Tạo thư mục errorlog nếu chưa tồn tại.
-        makedirs(ERRORLOG_DIR, exist_ok=True)
+        ERRORLOG_DIR.mkdir(parents=True, exist_ok=True)
+        errorfile = ERRORLOG_DIR / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
 
-        # Tạo tên file log theo thời gian hiện tại.
-        errorlog = join(
-            ERRORLOG_DIR, f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
-        )
+        with open(errorfile, "w", encoding="utf-8") as content:
+            print_exception(type(error), error, error.__traceback__, file=content)
 
-        # Mở file log để ghi lỗi.
-        with open(errorlog, "w", encoding="utf-8") as f:
-            # Ghi đầy đủ loại lỗi, nội dung lỗi và traceback vào file log.
-            print_exception(type(error), error, error.__traceback__, file=f)
-
-        print(f"Saved error to {errorlog}")
+        print(f"Saved error to {errorfile}")
 
 
-# Kiểm tra file này có đang được chạy trực tiếp hay không.
 if __name__ == "__main__":
-    # Tạo object parser để đọc tham số dòng lệnh.
     parser = ArgumentParser()
 
-    # Thêm tham số --model để người dùng chọn model OCR.
     parser.add_argument(
         "--model",
         type=str,
@@ -280,19 +296,5 @@ if __name__ == "__main__":
         help="Model selection",
     )
 
-    # Đọc tham số từ terminal.
     args = parser.parse_args()
-
     main(args.model)
-
-
-"""
-File này là chương trình chính của project OCR.
-Chương trình đọc dataset từ labels.csv và ảnh từ thư mục dataset/images.
-Sau đó chương trình chia dữ liệu thành 80% train và 20% test.
-Tập train được dùng để tìm cấu hình tiền xử lý ảnh tốt nhất từ options.json.
-Tập test được dùng để đánh giá kết quả cuối cùng của model OCR.
-Kết quả chi tiết được lưu vào output/easyocr.csv hoặc output/tesseract.csv.
-Kết quả tổng kết được lưu vào output/easyocr_summary.csv hoặc output/tesseract_summary.csv.
-Nếu chương trình bị lỗi, nội dung lỗi sẽ được ghi vào thư mục errorlog.
-"""

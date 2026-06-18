@@ -1,74 +1,61 @@
-[
-    {
-        "mode": "raw",
-        "threshold": 0
+{
+    "dataset": {
+        "dataset_dir": "dataset",
+        "image_dir": "images",
+        "label_path": "labels.csv",
+        "test_size": 0.2,
+        "random_state": 42,
+        "shuffle": true
     },
-    {
-        "mode": "gray",
-        "threshold": 0
+    "output": {
+        "output_dir": "output",
+        "processed_dir": "processed",
+        "errorlog_dir": "errorlog"
     },
-    {
-        "mode": "gray",
-        "threshold": 50
-    },
-    {
-        "mode": "gray",
-        "threshold": 100
-    },
-    {
-        "mode": "gray",
-        "threshold": 150
-    },
-    {
-        "mode": "contrast",
-        "threshold": 0
-    },
-    {
-        "mode": "contrast",
-        "threshold": 30
-    },
-    {
-        "mode": "contrast",
-        "threshold": 60
-    },
-    {
-        "mode": "contrast",
-        "threshold": 100
-    },
-    {
-        "mode": "contrast",
-        "threshold": 120
-    },
-    {
-        "mode": "contrast",
-        "threshold": 150
-    },
-    {
-        "mode": "binary",
-        "threshold": 100
-    },
-    {
-        "mode": "binary",
-        "threshold": 120
-    },
-    {
-        "mode": "binary",
-        "threshold": 140
-    },
-    {
-        "mode": "binary",
-        "threshold": 150
-    },
-    {
-        "mode": "binary",
-        "threshold": 160
-    },
-    {
-        "mode": "binary",
-        "threshold": 180
-    },
-    {
-        "mode": "binary",
-        "threshold": 200
+    "preprocesser": {
+        "save_processed": true,
+        "auto_rotate": false,
+        "resize_scale": 2,
+        "contrast_factor": 2.0,
+        "median_filter_size": 3,
+        "background_blur_radius": 25,
+        "modes": {
+            "raw": {
+                "enable": true,
+                "threshold": 0
+            },
+            "gray": {
+                "enable": true,
+                "threshold": 0
+            },
+            "contrast": {
+                "enable": true,
+                "threshold": 0
+            },
+            "binary": {
+                "enable": true,
+                "thresholds": [
+                    100,
+                    120,
+                    140,
+                    150,
+                    160,
+                    180,
+                    200
+                ]
+            },
+            "background": {
+                "enable": true,
+                "thresholds": [
+                    100,
+                    120,
+                    140,
+                    150,
+                    160,
+                    180,
+                    200
+                ]
+            }
+        }
     }
-]
+}

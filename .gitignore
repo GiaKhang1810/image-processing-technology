@@ -1,6 +1,6 @@
 __pycache__/
 .venv/
+dataset/
 output/
-errorlog/
 
 *.log
