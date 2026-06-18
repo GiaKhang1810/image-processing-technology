@@ -1,37 +1,64 @@
 # Image Processing Technology - OCR Receipt Recognition
 
-## 1. Giới thiệu đề tài
+**Version:** 1.0.1
+**Status:** Stable
+**Author:** Gia Khang, ThanhTan, MinhQuan, KhanhDuy, CongHuy
+**Purpose:** Course project, study, research and OCR demonstration.
 
-Project này xây dựng một hệ thống **OCR nhận dạng chữ trên ảnh biên lai/hóa đơn**. Ảnh đầu vào được tiền xử lý bằng thư viện **Pillow**, sau đó đưa vào model OCR để trích xuất nội dung văn bản.
+---
+
+## 1. Giới thiệu
+
+Project này xây dựng một hệ thống **OCR nhận dạng chữ trên ảnh biên lai/hóa đơn**.
+
+Ảnh đầu vào được tiền xử lý bằng **Pillow**, sau đó đưa vào model OCR để trích xuất nội dung văn bản. Project hỗ trợ thử nghiệm nhiều phương pháp tiền xử lý ảnh như `raw`, `gray`, `contrast`, `binary`, `background`, từ đó chọn ra cấu hình có kết quả tốt nhất.
+
+Project hiện hỗ trợ hai model OCR:
+
+* **EasyOCR**
+* **Tesseract OCR**
+
+PaddleOCR không được dùng trong bản cuối để tránh lỗi tương thích môi trường trên Windows.
+
+---
+
+## 2. Mục tiêu đề tài
 
 Mục tiêu chính của project:
 
-- Đọc chữ từ ảnh biên lai/hóa đơn.
-- So sánh kết quả OCR với dữ liệu nhãn đúng trong `labels.csv`.
-- Thử nhiều kiểu tiền xử lý ảnh để tìm cấu hình tốt nhất.
-- Đánh giá kết quả bằng chỉ số **CER** và **Accuracy**.
-- So sánh hai model OCR: **EasyOCR** và **Tesseract OCR**.
+* Tạo dataset ảnh biên lai/hóa đơn mẫu.
+* Đọc chữ từ ảnh biên lai/hóa đơn.
+* Tiền xử lý ảnh bằng Pillow trước khi OCR.
+* Thử nhiều cấu hình tiền xử lý ảnh.
+* So sánh kết quả OCR với nhãn đúng trong `labels.csv`.
+* Đánh giá model bằng **CER** và **Accuracy**.
+* Đo thời gian xử lý ảnh và thời gian OCR.
+* Xuất kết quả chi tiết và kết quả tổng kết ra file CSV.
 
-> Lưu ý: Trong project này, bước `training` không phải là fine-tune model deep learning thật. Bước này dùng tập train để tìm cấu hình tiền xử lý ảnh tốt nhất, ví dụ `raw`, `gray`, `contrast`, `binary` và các giá trị `threshold` khác nhau.
-
----
-
-## 2. Công nghệ sử dụng
-
-Project sử dụng các thư viện chính:
-
-| Thư viện | Chức năng |
-|---|---|
-| Pillow | Đọc ảnh, resize, grayscale, tăng tương phản, làm nét, threshold |
-| EasyOCR | Nhận dạng ký tự tiếng Việt và tiếng Anh |
-| pytesseract | Kết nối Python với Tesseract OCR |
-| pandas | Đọc và ghi file CSV |
-| scikit-learn | Chia dữ liệu train/test |
-| numpy | Chuyển ảnh Pillow sang array cho EasyOCR |
+Lưu ý: Trong project này, bước `training` không phải là fine-tune model deep learning thật. Bước này dùng tập train để tìm cấu hình tiền xử lý ảnh tốt nhất.
 
 ---
 
-## 3. Cấu trúc thư mục
+## 3. Công nghệ sử dụng
+
+| Công nghệ         | Chức năng                                |
+| ----------------- | ---------------------------------------- |
+| Python            | Ngôn ngữ chính của project               |
+| Pillow            | Đọc ảnh và tiền xử lý ảnh                |
+| NumPy             | Chuyển đổi ảnh sang mảng số              |
+| OpenCV            | Tạo dataset ảnh biên lai giả lập         |
+| EasyOCR           | Model OCR hỗ trợ tiếng Việt và tiếng Anh |
+| Tesseract OCR     | OCR engine truyền thống                  |
+| pytesseract       | Thư viện Python để gọi Tesseract OCR     |
+| pandas            | Đọc và ghi dữ liệu CSV                   |
+| scikit-learn      | Chia dữ liệu train/test                  |
+| pathlib           | Quản lý đường dẫn file/thư mục           |
+| csv               | Ghi CSV có quote để tránh vỡ dòng        |
+| time.perf_counter | Đo thời gian preprocess và OCR           |
+
+---
+
+## 4. Cấu trúc thư mục
 
 ```text
 image_processing_technology/
@@ -45,42 +72,47 @@ image_processing_technology/
 │   └── labels.csv
 │
 ├── output/
+│   ├──errorlog/
+│   │  └── yyyy-mm-dd_HH-MM-SS.log
 │   ├── processed/
 │   ├── easyocr.csv
 │   ├── easyocr_summary.csv
 │   ├── tesseract.csv
 │   └── tesseract_summary.csv
 │
-├── errorlog/
-│   └── yyyy-mm-dd_hh-mm-ss.log
-│
-├── gendata.py
+├── generateData.py
 ├── main.py
 ├── metrics.py
 ├── model.py
 ├── preprocess.py
+├── utils.py
 ├── options.json
 ├── requirements.txt
+├── LICENSE
+├── .gitignore
 └── README.md
 ```
 
-Ý nghĩa các file chính:
+---
 
-| File | Chức năng |
-|---|---|
-| `main.py` | Chạy toàn bộ pipeline OCR, chia train/test, tìm cấu hình xử lý ảnh tốt nhất và xuất kết quả |
-| `model.py` | Quản lý các model OCR gồm EasyOCR và Tesseract |
-| `preprocess.py` | Tiền xử lý ảnh bằng Pillow |
-| `metrics.py` | Tính CER và Accuracy |
-| `gendata.py` | Sinh dữ liệu biên lai mẫu |
-| `options.json` | Danh sách các cấu hình xử lý ảnh cần thử nghiệm |
-| `dataset/labels.csv` | Chứa nhãn đúng của từng ảnh |
-| `output/*.csv` | Chứa kết quả OCR sau khi chạy |
-| `errorlog/` | Lưu lỗi nếu chương trình chạy thất bại |
+## 5. Chức năng từng file
+
+| File               | Chức năng                                                              |
+| ------------------ | ---------------------------------------------------------------------- |
+| `generateData.py`  | Sinh dataset ảnh biên lai giả lập                                      |
+| `main.py`          | Chạy pipeline OCR, chia train/test, tìm option tốt nhất và lưu kết quả |
+| `model.py`         | Quản lý model EasyOCR và Tesseract                                     |
+| `preprocess.py`    | Tiền xử lý ảnh bằng Pillow                                             |
+| `metrics.py`       | Tính Levenshtein Distance, CER và Accuracy                             |
+| `utils.py`         | Đọc cấu hình, chuẩn hóa text, làm sạch text khi ghi CSV                |
+| `options.json`     | Cấu hình dataset, output, preprocess và các mode cần thử               |
+| `requirements.txt` | Danh sách thư viện cần cài                                             |
+| `LICENSE`          | Thông tin quyền sử dụng và bản quyền                                   |
+| `README.md`        | Tài liệu hướng dẫn project                                             |
 
 ---
 
-## 4. Dataset
+## 6. Dataset
 
 Dataset nằm trong thư mục:
 
@@ -92,10 +124,10 @@ dataset/
 
 Trong đó:
 
-- `dataset/images/` chứa ảnh biên lai/hóa đơn.
-- `dataset/labels.csv` chứa nội dung đúng tương ứng với từng ảnh.
+* `dataset/images/` chứa ảnh biên lai/hóa đơn.
+* `dataset/labels.csv` chứa text đúng tương ứng với từng ảnh.
 
-Cấu trúc file `labels.csv`:
+Cấu trúc `labels.csv`:
 
 ```csv
 filename,text
@@ -105,18 +137,60 @@ receipt_002.jpg,"BIEN LAI THANH TOAN | Mon: Tra da | Gia: 18000 VND | Ngay: 17/0
 
 Ý nghĩa:
 
-| Cột | Ý nghĩa |
-|---|---|
-| `filename` | Tên ảnh trong thư mục `dataset/images/` |
-| `text` | Nội dung đúng dùng để so sánh với kết quả OCR |
+| Cột        | Ý nghĩa                                       |
+| ---------- | --------------------------------------------- |
+| `filename` | Tên ảnh trong thư mục `dataset/images/`       |
+| `text`     | Nội dung đúng dùng để so sánh với kết quả OCR |
+
+Các ký tự như `|`, `:`, `/`, `!` sẽ được loại bỏ khi tính điểm nhờ hàm chuẩn hóa trong `utils.py`, nên kết quả đánh giá công bằng hơn.
 
 ---
 
-## 5. Cài đặt môi trường
+## 7. Tạo dataset mẫu
 
-Nên dùng Python **3.11** để tránh lỗi tương thích thư viện OCR.
+Project có file `generateData.py` để tự tạo ảnh biên lai giả lập.
 
-### 5.1. Tạo môi trường ảo
+Chạy tạo 200 ảnh mặc định:
+
+```powershell
+python generateData.py --len 200
+```
+
+Chạy tạo 500 ảnh:
+
+```powershell
+python generateData.py --len 500
+```
+
+Đổi thư mục output:
+
+```powershell
+python generateData.py --len 200 --output dataset
+```
+
+Sau khi chạy, chương trình sẽ tạo:
+
+```text
+dataset/images/
+dataset/labels.csv
+```
+
+Ảnh được tạo có thể có một số hiệu ứng ngẫu nhiên như:
+
+* Làm mờ ảnh.
+* Làm tối ảnh.
+* Thêm vùng chói sáng.
+* Làm méo phối cảnh.
+
+Mục đích là mô phỏng ảnh hóa đơn/biên lai chụp trong điều kiện thực tế.
+
+---
+
+## 8. Cài đặt môi trường
+
+Nên dùng Python 3.11 để tránh lỗi tương thích thư viện OCR.
+
+### 8.1. Tạo môi trường ảo
 
 ```powershell
 py -3.11 -m venv .venv
@@ -135,64 +209,175 @@ python --version
 where python
 ```
 
-Đường dẫn Python nên trỏ về thư mục `.venv` của project.
+Đường dẫn Python nên trỏ vào thư mục `.venv` của project.
 
 ---
 
-### 5.2. Cài thư viện
+### 8.2. Cài thư viện
 
-Nếu đã có `requirements.txt`, chạy:
+Cài từ `requirements.txt`:
 
 ```powershell
 python -m pip install -r requirements.txt
 ```
 
-Nếu chưa có `requirements.txt`, có thể cài thủ công:
+Nếu `requirements.txt` bị quá nhiều thư viện phụ hoặc bị lỗi encoding, có thể cài thủ công các thư viện chính:
 
 ```powershell
 python -m pip install pillow numpy pandas scikit-learn easyocr pytesseract opencv-python-headless
 ```
 
-Nếu muốn EasyOCR dùng GPU NVIDIA, cài PyTorch bản CUDA:
+Nếu muốn dùng EasyOCR với GPU NVIDIA, cài PyTorch bản CUDA:
 
 ```powershell
 python -m pip uninstall torch torchvision torchaudio -y
+python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+```
+
+Hoặc dùng CUDA 12.8:
+
+```powershell
 python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 ```
 
-Kiểm tra PyTorch có nhận GPU không:
+Kiểm tra GPU:
 
 ```powershell
 python -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'NO GPU')"
 ```
 
-Nếu kết quả là `True` và hiện tên GPU thì EasyOCR có thể chạy bằng GPU. Nếu không, chương trình vẫn chạy được bằng CPU nhưng tốc độ sẽ chậm hơn.
+Nếu kết quả có `True` và hiện tên GPU, EasyOCR có thể chạy bằng GPU.
 
 ---
 
-## 6. Cài đặt Tesseract OCR
+## 9. Cài đặt Tesseract OCR
 
-Model Tesseract cần cài thêm phần mềm **Tesseract OCR** trên Windows. Việc cài `pytesseract` bằng pip chỉ là thư viện Python để gọi Tesseract, chưa phải OCR engine thật.
+Nếu dùng model `tesseract`, cần cài thêm phần mềm **Tesseract OCR** trên Windows.
 
-Sau khi cài Tesseract OCR, cần đảm bảo lệnh này chạy được trong terminal:
+`pytesseract` chỉ là thư viện Python để gọi Tesseract, không phải OCR engine.
+
+Sau khi cài Tesseract OCR, kiểm tra:
 
 ```powershell
 tesseract --version
 ```
 
-Nếu dùng tiếng Việt, cần có dữ liệu ngôn ngữ `vie.traineddata`. Khi chạy Tesseract trong project, code sử dụng:
+Nếu dùng tiếng Việt, cần đảm bảo Tesseract có file ngôn ngữ:
+
+```text
+vie.traineddata
+```
+
+Trong code, Tesseract được gọi với cấu hình:
 
 ```python
 lang="vie+eng"
+config="--psm 6"
 ```
 
 Nghĩa là Tesseract sẽ đọc cả tiếng Việt và tiếng Anh.
 
 ---
 
-## 7. Cách chạy project
+## 10. Cấu hình `options.json`
 
-### 7.1. Chạy với EasyOCR
+File `options.json` điều khiển toàn bộ đường dẫn và cách chạy preprocess.
+
+Ví dụ cấu hình hiện tại:
+
+```json
+{
+    "dataset": {
+        "dataset_dir": "dataset",
+        "image_dir": "images",
+        "label_path": "labels.csv",
+        "test_size": 0.2,
+        "random_state": 42,
+        "shuffle": true
+    },
+    "output": {
+        "output_dir": "output",
+        "processed_dir": "processed",
+        "errorlog_dir": "errorlog"
+    },
+    "preprocesser": {
+        "save_processed": true,
+        "auto_rotate": false,
+        "resize_scale": 2,
+        "contrast_factor": 2.0,
+        "median_filter_size": 3,
+        "background_blur_radius": 25,
+        "modes": {
+            "raw": {
+                "enable": true,
+                "threshold": 0
+            },
+            "gray": {
+                "enable": true,
+                "threshold": 0
+            },
+            "contrast": {
+                "enable": true,
+                "threshold": 0
+            },
+            "binary": {
+                "enable": true,
+                "thresholds": [100, 120, 140, 150, 160, 180, 200]
+            },
+            "background": {
+                "enable": true,
+                "thresholds": [100, 120, 140, 150, 160, 180, 200]
+            }
+        }
+    }
+}
+```
+
+Ý nghĩa chính:
+
+| Key                      | Ý nghĩa                                  |
+| ------------------------ | ---------------------------------------- |
+| `dataset_dir`            | Thư mục dataset                          |
+| `image_dir`              | Thư mục ảnh bên trong dataset            |
+| `label_path`             | File nhãn bên trong dataset              |
+| `test_size`              | Tỉ lệ dữ liệu test                       |
+| `random_state`           | Seed để chia dữ liệu ổn định             |
+| `shuffle`                | Có trộn dữ liệu trước khi chia hay không |
+| `output_dir`             | Thư mục lưu kết quả                      |
+| `processed_dir`          | Thư mục lưu ảnh đã xử lý                 |
+| `errorlog_dir`           | Thư mục lưu log lỗi                      |
+| `save_processed`         | Có lưu ảnh sau xử lý hay không           |
+| `auto_rotate`            | Có tự xoay ảnh bị nghiêng hay không      |
+| `resize_scale`           | Tỉ lệ phóng to ảnh                       |
+| `contrast_factor`        | Mức tăng tương phản                      |
+| `median_filter_size`     | Kích thước bộ lọc khử nhiễu              |
+| `background_blur_radius` | Bán kính blur để ước lượng nền           |
+| `modes`                  | Các mode preprocess cần thử nghiệm       |
+
+Lưu ý: Key đang dùng trong project là `preprocesser`, không phải `preprocessor`. Không nên tự đổi tên key nếu chưa sửa code.
+
+---
+
+## 11. Các mode tiền xử lý ảnh
+
+Project hỗ trợ các mode sau:
+
+| Mode         | Ý nghĩa                                                           |
+| ------------ | ----------------------------------------------------------------- |
+| `raw`        | Giữ nguyên ảnh gốc                                                |
+| `gray`       | Resize và chuyển ảnh sang grayscale                               |
+| `contrast`   | Resize, grayscale, tăng tương phản và làm nét                     |
+| `binary`     | Xử lý thêm khử nhiễu và chuyển ảnh thành đen trắng bằng threshold |
+| `background` | Giảm nền giấy, bóng đổ và nền xám bằng cách ước lượng background  |
+
+Với `raw`, `gray`, `contrast`, threshold thường không ảnh hưởng nhiều.
+Với `binary` và `background`, threshold ảnh hưởng trực tiếp đến kết quả.
+
+---
+
+## 12. Chạy project
+
+### 12.1. Chạy với EasyOCR
 
 ```powershell
 python main.py --model easyocr
@@ -207,7 +392,7 @@ output/easyocr_summary.csv
 
 ---
 
-### 7.2. Chạy với Tesseract OCR
+### 12.2. Chạy với Tesseract OCR
 
 ```powershell
 python main.py --model tesseract
@@ -222,223 +407,280 @@ output/tesseract_summary.csv
 
 ---
 
-## 8. Quy trình hoạt động
+## 13. Quy trình hoạt động
 
-Khi chạy `main.py`, chương trình sẽ thực hiện các bước:
+Khi chạy `main.py`, chương trình thực hiện các bước sau:
 
-1. Đọc dữ liệu từ `dataset/labels.csv`.
-2. Chia dữ liệu thành 80% train và 20% test.
-3. Đọc danh sách cấu hình xử lý ảnh trong `options.json`.
-4. Với từng cấu hình, chương trình xử lý ảnh bằng Pillow.
-5. Đưa ảnh đã xử lý vào model OCR.
-6. So sánh kết quả OCR với nhãn đúng.
-7. Tính CER và Accuracy.
-8. Chọn cấu hình xử lý ảnh tốt nhất trên tập train.
-9. Đánh giá lại trên tập test.
-10. Xuất kết quả chi tiết và kết quả tổng kết ra thư mục `output`.
-
----
-
-## 9. Các chế độ tiền xử lý ảnh
-
-Các chế độ xử lý ảnh được định nghĩa trong `preprocess.py` và cấu hình trong `options.json`.
-
-| Mode | Ý nghĩa |
-|---|---|
-| `raw` | Giữ ảnh gốc, không xử lý thêm |
-| `gray` | Resize ảnh và chuyển sang ảnh xám |
-| `contrast` | Resize, grayscale, tăng tương phản và làm nét |
-| `binary` | Resize, grayscale, tăng tương phản, làm nét, khử nhiễu và threshold trắng đen |
-
-Ví dụ cấu hình trong `options.json`:
-
-```json
-{
-  "mode": "contrast",
-  "threshold": 100
-}
-```
-
-Với `mode` là `binary`, giá trị `threshold` sẽ quyết định điểm cắt trắng đen của ảnh. Với các mode khác, `threshold` chủ yếu được dùng để ghi nhận cấu hình khi xuất kết quả.
+1. Đọc cấu hình từ `options.json`.
+2. Tạo các thư mục cần thiết như `output`, `output/processed`, `output/errorlog`.
+3. Đọc dữ liệu từ `dataset/labels.csv`.
+4. Chia dữ liệu thành train/test theo cấu hình.
+5. Khởi tạo model OCR.
+6. Khởi tạo bộ tiền xử lý ảnh `Preprocesser`.
+7. Tạo pipeline xử lý.
+8. Dùng tập train để thử các mode preprocess.
+9. Tính Accuracy và CER cho từng mode.
+10. Chọn mode và threshold tốt nhất.
+11. Dùng cấu hình tốt nhất để đánh giá trên tập test.
+12. Lưu kết quả chi tiết và kết quả tổng kết.
+13. Nếu có lỗi, ghi traceback vào thư mục log.
 
 ---
 
-## 10. Metrics đánh giá
+## 14. Kết quả đầu ra
 
-Project sử dụng hai chỉ số chính:
+Sau khi chạy, project tạo các file trong thư mục `output/`.
 
-### 10.1. CER
-
-CER là viết tắt của **Character Error Rate**, tức tỷ lệ lỗi theo ký tự.
-
-Công thức:
-
-```text
-CER = số lỗi ký tự / tổng số ký tự đúng
-```
-
-CER càng thấp thì OCR càng tốt.
+### 14.1. File chi tiết
 
 Ví dụ:
 
 ```text
-Expected: BIEN LAI THANH TOAN
-Predicted: BIEN LAI THANH TOAM
+output/easyocr.csv
+output/tesseract.csv
 ```
 
-Model chỉ sai một ký tự, nên CER sẽ thấp.
+Các cột chính:
+
+| Cột               | Ý nghĩa                          |
+| ----------------- | -------------------------------- |
+| `filename`        | Tên ảnh                          |
+| `model`           | Model OCR đang dùng              |
+| `mode`            | Mode preprocess                  |
+| `threshold`       | Threshold đang dùng              |
+| `expected`        | Text đúng                        |
+| `predicted`       | Text OCR dự đoán                 |
+| `cer`             | Character Error Rate             |
+| `accuracy`        | Độ chính xác gần đúng            |
+| `preprocess_time` | Thời gian xử lý ảnh              |
+| `ocr_time`        | Thời gian OCR                    |
+| `total_time`      | Tổng thời gian preprocess và OCR |
+
+### 14.2. File tổng kết
+
+Ví dụ:
+
+```text
+output/easyocr_summary.csv
+output/tesseract_summary.csv
+```
+
+Các cột chính:
+
+| Cột              | Ý nghĩa                  |
+| ---------------- | ------------------------ |
+| `model`          | Model OCR                |
+| `best_mode`      | Mode preprocess tốt nhất |
+| `best_threshold` | Threshold tốt nhất       |
+| `train_accuracy` | Accuracy trên tập train  |
+| `test_cer`       | CER trên tập test        |
+| `test_accuracy`  | Accuracy trên tập test   |
+
+### 14.3. Ảnh đã xử lý
+
+Nếu `save_processed` là `true`, ảnh sau preprocess sẽ được lưu vào:
+
+```text
+output/processed/
+```
+
+Các ảnh này dùng để kiểm tra xem bước xử lý ảnh có làm chữ rõ hơn hay không.
 
 ---
 
-### 10.2. Accuracy
+## 15. Metrics đánh giá
 
-Accuracy trong project được tính gần đúng từ CER:
+Project dùng **CER** và **Accuracy**.
+
+### 15.1. CER
+
+CER là viết tắt của **Character Error Rate**.
+
+Công thức:
+
+```text
+CER = Levenshtein Distance / số ký tự của text đúng
+```
+
+CER càng thấp thì model OCR càng tốt.
+
+Ví dụ:
+
+```text
+CER = 0.10
+```
+
+Nghĩa là sai khoảng 10% ký tự.
+
+### 15.2. Accuracy
+
+Accuracy được tính gần đúng từ CER:
 
 ```text
 Accuracy = max(0, 1 - CER)
 ```
 
-Accuracy càng cao thì model đọc càng tốt.
+Accuracy càng cao thì model OCR càng tốt.
 
 ---
 
-## 11. Chuẩn hóa text khi đánh giá
+## 16. Chuẩn hóa text khi đánh giá
 
-Trong `metrics.py`, text được chuẩn hóa trước khi tính CER:
+Trước khi tính điểm, text được chuẩn hóa trong `utils.py`.
 
-- Xóa dấu tiếng Việt.
-- Chuyển về chữ thường.
-- Xóa ký tự đặc biệt.
-- Xóa khoảng trắng dư.
+Các bước chuẩn hóa:
 
-Việc này giúp đánh giá công bằng hơn, vì OCR có thể đọc đúng nội dung nhưng khác dấu, khác chữ hoa/thường hoặc khác ký tự phân tách.
+* Chuyển về string.
+* Xóa dấu tiếng Việt.
+* Chuyển về chữ thường.
+* Xóa ký tự đặc biệt.
+* Chỉ giữ chữ cái, số và khoảng trắng.
+* Xóa khoảng trắng dư.
 
 Ví dụ:
 
 ```text
-Cà phê sữa
-ca phe sua
+BIEN LAI THANH TOAN | Mon: Trà đá | Giá: 18000 VND!
 ```
 
-Sau chuẩn hóa, hai chuỗi trên được xem là gần giống nhau hơn.
-
----
-
-## 12. Kết quả đầu ra
-
-Sau khi chạy model, thư mục `output/` sẽ có các file:
+sau chuẩn hóa thành:
 
 ```text
-output/
-├── easyocr.csv
-├── easyocr_summary.csv
-├── tesseract.csv
-├── tesseract_summary.csv
-└── processed/
+bien lai thanh toan mon tra da gia 18000 vnd
 ```
 
-### 12.1. File kết quả chi tiết
-
-Ví dụ `output/easyocr.csv` hoặc `output/tesseract.csv`:
-
-| Cột | Ý nghĩa |
-|---|---|
-| `filename` | Tên ảnh test |
-| `model` | Model OCR đã dùng |
-| `mode` | Kiểu xử lý ảnh tốt nhất |
-| `threshold` | Giá trị threshold |
-| `expected` | Text đúng từ labels.csv |
-| `predicted` | Text OCR đọc được |
-| `cer` | Character Error Rate |
-| `accuracy` | Độ chính xác gần đúng |
-
-### 12.2. File tổng kết
-
-Ví dụ `output/easyocr_summary.csv`:
-
-| Cột | Ý nghĩa |
-|---|---|
-| `model` | Model OCR |
-| `best_mode` | Mode xử lý ảnh tốt nhất |
-| `best_threshold` | Threshold tốt nhất |
-| `train_accuracy` | Accuracy trung bình trên tập train |
-| `test_cer` | CER trung bình trên tập test |
-| `test_accuracy` | Accuracy trung bình trên tập test |
-
-File summary là file nên dùng để đưa vào báo cáo vì gọn và dễ đọc.
+Nhờ vậy, các ký tự như `|`, `:`, `!`, `/` không làm điểm đánh giá bị sai lệch quá nhiều.
 
 ---
 
-## 13. Sinh lại dataset mẫu
+## 17. Đo thời gian xử lý
 
-Project có file `generateData.py` để sinh ảnh biên lai mẫu.
+Trong `main.py`, hàm `evaluate()` đo ba loại thời gian:
 
-Trước khi chạy, đảm bảo thư mục `dataset/images` đã tồn tại:
+| Cột               | Ý nghĩa                         |
+| ----------------- | ------------------------------- |
+| `preprocess_time` | Thời gian xử lý ảnh bằng Pillow |
+| `ocr_time`        | Thời gian model OCR đọc ảnh     |
+| `total_time`      | Tổng thời gian của từng ảnh     |
+
+Ngoài ra, khi chạy terminal sẽ in tổng thời gian theo từng mode:
+
+```text
+Evaluate mode=contrast, threshold=0 | preprocess=1.24s | ocr=12.50s | total=13.90s
+```
+
+Thông tin này giúp xác định phần chậm nằm ở preprocess hay OCR.
+
+---
+
+## 18. Sử dụng GPU
+
+EasyOCR có thể dùng GPU nếu PyTorch nhận CUDA.
+
+Trong `model.py`, EasyOCR được khởi tạo với:
+
+```python
+Reader(["vi", "en"], gpu=True)
+```
+
+Kiểm tra GPU:
 
 ```powershell
-mkdir dataset\images
+python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'NO GPU')"
 ```
 
-Chạy lệnh:
+Nếu Task Manager không hiện mục CUDA riêng thì vẫn có thể kiểm tra bằng:
 
 ```powershell
-python generateData.py
+nvidia-smi
 ```
 
-Script sẽ tạo 200 ảnh biên lai mẫu và file `dataset/labels.csv`.
+Nếu thấy `python.exe` dùng VRAM, nghĩa là GPU đang được dùng.
 
-Các hiệu ứng ảnh được tạo ngẫu nhiên gồm:
-
-- Làm mờ ảnh.
-- Giảm sáng.
-- Thêm vùng chói sáng.
-- Làm méo phối cảnh.
-
-Mục đích là mô phỏng ảnh hóa đơn/biên lai chụp trong nhiều điều kiện khác nhau.
+Lưu ý: GPU chỉ tăng tốc phần OCR của EasyOCR. Các bước như resize, rotate, background removal, ghi CSV vẫn chạy bằng CPU.
 
 ---
 
-## 14. Xử lý lỗi
+## 19. Tối ưu tốc độ
 
-Nếu chương trình gặp lỗi, lỗi sẽ được ghi vào thư mục:
+Nếu project chạy chậm, có thể chỉnh `options.json`.
 
-```text
-errorlog/
+Tắt lưu ảnh processed:
+
+```json
+"save_processed": false
 ```
 
-Tên file lỗi có dạng:
+Tắt tự xoay ảnh:
 
-```text
-2026-06-18_01-50-20.log
+```json
+"auto_rotate": false
 ```
 
-Mở file log để xem traceback chi tiết.
+Giảm số threshold cần thử:
+
+```json
+"binary": {
+    "enable": true,
+    "thresholds": [120, 150, 180]
+}
+```
+
+Tắt mode background nếu không cần:
+
+```json
+"background": {
+    "enable": false,
+    "thresholds": [120, 150, 180]
+}
+```
+
+Gợi ý cấu hình nhanh để benchmark:
+
+```json
+"modes": {
+    "raw": {
+        "enable": true,
+        "threshold": 0
+    },
+    "gray": {
+        "enable": true,
+        "threshold": 0
+    },
+    "contrast": {
+        "enable": true,
+        "threshold": 0
+    },
+    "binary": {
+        "enable": true,
+        "thresholds": [120, 150, 180]
+    },
+    "background": {
+        "enable": false,
+        "thresholds": [120, 150, 180]
+    }
+}
+```
 
 ---
 
-## 15. Một số lỗi thường gặp
+## 20. Lỗi thường gặp
 
-### 15.1. EasyOCR báo chạy CPU
+### 20.1. EasyOCR chạy CPU thay vì GPU
 
-Thông báo thường gặp:
-
-```text
-Neither CUDA nor MPS are available - defaulting to CPU
-```
-
-Nguyên nhân là PyTorch chưa nhận GPU CUDA. Kiểm tra bằng lệnh:
+Kiểm tra PyTorch:
 
 ```powershell
-python -c "import torch; print(torch.cuda.is_available())"
+python -c "import torch; print(torch.version.cuda); print(torch.cuda.is_available())"
 ```
 
-Nếu kết quả là `False`, cần cài lại PyTorch bản CUDA.
+Nếu `False`, cần cài lại PyTorch bản CUDA.
 
 ---
 
-### 15.2. TesseractNotFoundError
+### 20.2. TesseractNotFoundError
 
-Nguyên nhân là máy chưa cài phần mềm Tesseract OCR hoặc chưa thêm Tesseract vào PATH.
+Nguyên nhân: Chưa cài phần mềm Tesseract OCR hoặc chưa thêm Tesseract vào PATH.
 
 Cách kiểm tra:
 
@@ -446,94 +688,104 @@ Cách kiểm tra:
 tesseract --version
 ```
 
-Nếu lệnh không chạy, cần cài Tesseract OCR trên Windows.
+---
+
+### 20.3. File CSV bị vỡ dòng
+
+Nguyên nhân: Text OCR có ký tự xuống dòng.
+
+Project đã xử lý bằng `clean_text_for_csv()` và lưu CSV với `QUOTE_ALL`, nên file CSV sẽ dễ đọc hơn.
 
 ---
 
-### 15.3. CSV bị xuống dòng lộn xộn
+### 20.4. Không tìm thấy `labels.csv`
 
-Kết quả OCR có thể chứa ký tự `\n`, `\r`, `\t`, làm file CSV hiển thị lộn xộn. Project đã xử lý bằng hàm `clean_text_for_csv()` trong `main.py`, sau đó lưu CSV với `quoting=QUOTE_ALL` để tránh vỡ dòng và vỡ cột.
+Kiểm tra cấu trúc thư mục:
 
----
-
-## 16. Xuất requirements.txt
-
-Sau khi cài đủ thư viện và chạy ổn định, xuất file requirements:
-
-```powershell
-python -m pip freeze > requirements.txt
+```text
+dataset/
+├── images/
+└── labels.csv
 ```
 
-Người khác có thể cài lại bằng:
+Nếu chưa có dataset, chạy:
 
 ```powershell
-python -m pip install -r requirements.txt
+python generateData.py --len 200
 ```
-
-Không nên đưa thư mục `.venv` vào file nộp.
 
 ---
 
-## 17. Các file không nên nộp
+### 20.5. Output quá nặng
 
-Khi nén project để nộp, có thể bỏ các thư mục/file sau:
+Nếu `output/processed/` có quá nhiều ảnh, chỉnh trong `options.json`:
+
+```json
+"save_processed": false
+```
+
+---
+
+## 21. Cách nộp bài
+
+Khi nộp bài, nên nộp các thành phần sau:
+
+```text
+source code
+README.md
+requirements.txt
+options.json
+dataset mẫu
+output summary
+báo cáo PDF nếu có
+```
+
+Không nên nộp:
 
 ```text
 .venv/
 __pycache__/
-*.pyc
-output/processed/
-errorlog/
-.git/
+output/processed/ quá lớn
 ```
 
-Các file nên nộp:
+Có thể giữ trong `.gitignore`:
 
-```text
-main.py
-model.py
-preprocess.py
-metrics.py
-gendata.py
-options.json
-requirements.txt
-README.md
-dataset/labels.csv
-dataset/images/ một số ảnh mẫu
-output/easyocr_summary.csv
-output/tesseract_summary.csv
+```gitignore
+__pycache__/
+.venv/
+dataset/
+output/
+*.log
 ```
+
+Nếu cần nộp dataset, bỏ dòng `dataset/` khỏi `.gitignore`.
 
 ---
 
-## 18. Kết luận
+## 22. Tác giả
 
-Project đã xây dựng được pipeline OCR cơ bản cho ảnh biên lai/hóa đơn. Hệ thống có thể tiền xử lý ảnh bằng Pillow, chạy OCR bằng EasyOCR hoặc Tesseract, sau đó đánh giá kết quả bằng CER và Accuracy.
+* Gia Khang
+* ThanhTan
+* MinhQuan
+* KhanhDuy
+* CongHuy
 
-Kết quả có thể tiếp tục cải thiện bằng cách:
+Project được phát triển phục vụ học tập, nghiên cứu và báo cáo môn học.
 
-- Tăng số lượng ảnh trong dataset.
-- Dùng ảnh hóa đơn thật thay vì ảnh sinh tự động.
-- Gán nhãn dữ liệu chính xác hơn.
-- Tách riêng các trường như tên món, giá tiền, ngày tháng.
-- Fine-tune model OCR chuyên cho tiếng Việt nếu có đủ dữ liệu.
+---
 
-## Thông tin tác giả
+## 23. Quyền sử dụng và bản quyền
 
-* **Tác giả:** [GiaKhang](https://github.com/GiaKhang1810), ThanhTan, MinhQuan, KhanhDuy, CongHuy, Huu
-* **Tên project:** Image Processing Technology - OCR Receipt Recognition
-* **Mục đích:** Project được xây dựng phục vụ học tập, nghiên cứu và demo bài toán OCR nhận dạng chữ trên ảnh hóa đơn/biên lai.
-* **Công nghệ sử dụng:** Python, Pillow, EasyOCR, Tesseract OCR, Pandas, Scikit-learn.
+Project này được phát triển cho mục đích học tập và báo cáo môn học.
 
-## Quyền sử dụng và bản quyền
+Toàn bộ source code, cấu trúc xử lý ảnh và quy trình đánh giá model thuộc về nhóm tác giả của project.
 
-  Project này được phát triển cho mục đích học tập và báo cáo môn học.
-  Toàn bộ source code, cấu trúc xử lý ảnh và quy trình đánh giá model thuộc về tác giả của project.
+Người dùng có thể tham khảo, chỉnh sửa và chạy lại project cho mục đích học tập hoặc nghiên cứu cá nhân.
 
-  Người dùng có thể tham khảo, chỉnh sửa và chạy lại project cho mục đích học tập hoặc nghiên cứu cá nhân.
-  Không được sử dụng project này cho mục đích thương mại, sao chép để nộp lại như sản phẩm của người khác hoặc phân phối lại khi chưa có sự đồng ý của tác giả.
+Không được sử dụng project này cho mục đích thương mại, sao chép để nộp lại như sản phẩm của người khác hoặc phân phối lại khi chưa có sự đồng ý của nhóm tác giả.
 
-  Dataset mẫu trong project chỉ dùng để thử nghiệm mô hình OCR.
-  Nếu sử dụng ảnh hóa đơn/biên lai thật, cần đảm bảo không chứa thông tin cá nhân nhạy cảm hoặc dữ liệu riêng tư của người khác.
+Dataset mẫu trong project chỉ dùng để thử nghiệm mô hình OCR.
 
-  © 2026 Gia Khang, ThanhTan, MinhQuan, KhanhDuy, CongHuy, Huu. All rights reserved.
+Nếu sử dụng ảnh hóa đơn/biên lai thật, cần đảm bảo không chứa thông tin cá nhân nhạy cảm hoặc dữ liệu riêng tư của người khác.
+
+© 2026 Gia Khang, ThanhTan, MinhQuan, KhanhDuy, CongHuy. All rights reserved.
