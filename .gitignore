@@ -1,7 +1,7 @@
-__pycache__/
-.venv/
-dataset/
-output/
+__pycache__/ 
+.venv/ 
+dataset/ 
+output/ 
 
-*.log
+*.log 
 options.json
