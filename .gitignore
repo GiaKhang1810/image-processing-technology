@@ -4,3 +4,4 @@ dataset/
 output/
 
 *.log
+options.json
