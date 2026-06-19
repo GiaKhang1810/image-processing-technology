@@ -9,10 +9,20 @@ class Model:
 
         match modelname:
             case "easyocr":
+                from torch import cuda
                 from easyocr import Reader
 
+                using_graphics_card = cuda.is_available()
+                if using_graphics_card:
+                    print(f"Using graphics card: {cuda.get_device_name(0)}")
+                else:
+                    from platform import processor
+
+                    print("Graphics card not avaible")
+                    print(f"Using processor: {processor()}")
+
                 # EasyOCR nhận ảnh dạng numpy array và trả về danh sách các đoạn text.
-                easyReader = Reader(["vi", "en"], gpu=True)
+                easyReader = Reader(["vi", "en"], gpu=using_graphics_card)
 
                 def reader(image: ndarray) -> str:
                     content = easyReader.readtext(image, detail=0)

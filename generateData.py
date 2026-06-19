@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from csv import writer
+from csv import QUOTE_ALL, writer
 from pathlib import Path
 from random import choice, randint, sample, uniform
 
@@ -630,6 +630,20 @@ def generate_receipt_data(index: int) -> tuple[str, str, np.ndarray]:
     return filename, full_text, img
 
 
+def save_labels(label_path: Path, labels: list[tuple[str, str]]) -> None:
+    label_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with label_path.open("w", newline="", encoding="utf-8-sig") as file:
+        csv_writer = writer(
+            file,
+            quoting=QUOTE_ALL,
+            lineterminator="\n",
+        )
+
+        csv_writer.writerow(["filename", "text"])
+        csv_writer.writerows(labels)
+
+
 def generate_dataset(length: int, output_dir: str = "dataset") -> None:
     if length <= 0:
         raise ValueError("--len must be greater than 0")
@@ -640,7 +654,7 @@ def generate_dataset(length: int, output_dir: str = "dataset") -> None:
 
     image_dir.mkdir(parents=True, exist_ok=True)
 
-    csv_data = [["filename", "text"]]
+    labels: list[tuple[str, str]] = []
 
     for i in range(1, length + 1):
         filename, text, img = generate_receipt_data(i)
@@ -652,11 +666,9 @@ def generate_dataset(length: int, output_dir: str = "dataset") -> None:
             cv2.cvtColor(img, cv2.COLOR_RGB2BGR),
         )
 
-        csv_data.append([filename, text])
+        labels.append((filename, text))
 
-    with label_path.open("w", newline="", encoding="utf-8") as file:
-        csv_writer = writer(file)
-        csv_writer.writerows(csv_data)
+    save_labels(label_path, labels)
 
     print(f"{length} images have been successfully created.")
     print(f"Images: {image_dir}")

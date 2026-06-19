@@ -209,6 +209,9 @@ class PipeLine:
 
 # Chạy toàn bộ pipeline: đọc cấu hình, chia dữ liệu, train chọn cấu hình và test model.
 def main(modelname: str) -> None:
+    print("===== START TRAINING =====")
+    print(f"Using OCR: {modelname}")
+    
     options = read_options()
 
     # Chuẩn bị các đường dẫn chính từ file cấu hình.
@@ -260,8 +263,6 @@ def main(modelname: str) -> None:
             shuffle=options["dataset"]["shuffle"],
         )
 
-        print("===== START TRAINING =====")
-        print(f"Using OCR: {modelname}")
         print("Finding best preprocessing threshold on train data...\n")
 
         # Tìm cấu hình tiền xử lý tốt nhất trên tập train.
