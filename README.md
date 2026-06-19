@@ -2,7 +2,7 @@
 
 **Version:** 1.0.1
 **Status:** Stable
-**Author:** Gia Khang, ThanhTan, MinhQuan, KhanhDuy, CongHuy
+**Author:** [Gia Khang](https://github.com/GiaKhang1810)
 **Purpose:** Course project, study, research and OCR demonstration.
 
 ---
@@ -726,55 +726,15 @@ Nếu `output/processed/` có quá nhiều ảnh, chỉnh trong `options.json`:
 
 ---
 
-## 21. Cách nộp bài
-
-Khi nộp bài, nên nộp các thành phần sau:
-
-```text
-source code
-README.md
-requirements.txt
-options.json
-dataset mẫu
-output summary
-báo cáo PDF nếu có
-```
-
-Không nên nộp:
-
-```text
-.venv/
-__pycache__/
-output/processed/ quá lớn
-```
-
-Có thể giữ trong `.gitignore`:
-
-```gitignore
-__pycache__/
-.venv/
-dataset/
-output/
-*.log
-```
-
-Nếu cần nộp dataset, bỏ dòng `dataset/` khỏi `.gitignore`.
-
----
-
-## 22. Tác giả
+## 21. Tác giả
 
 * Gia Khang
-* ThanhTan
-* MinhQuan
-* KhanhDuy
-* CongHuy
 
 Project được phát triển phục vụ học tập, nghiên cứu và báo cáo môn học.
 
 ---
 
-## 23. Quyền sử dụng và bản quyền
+## 22. Quyền sử dụng và bản quyền
 
 Project này được phát triển cho mục đích học tập và báo cáo môn học.
 
@@ -788,4 +748,4 @@ Dataset mẫu trong project chỉ dùng để thử nghiệm mô hình OCR.
 
 Nếu sử dụng ảnh hóa đơn/biên lai thật, cần đảm bảo không chứa thông tin cá nhân nhạy cảm hoặc dữ liệu riêng tư của người khác.
 
-© 2026 Gia Khang, ThanhTan, MinhQuan, KhanhDuy, CongHuy. All rights reserved.
+© 2026 Gia Khang. All rights reserved.

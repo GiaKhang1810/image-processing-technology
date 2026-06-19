@@ -3,6 +3,7 @@ from numpy import array, ndarray
 
 
 class Model:
+    # Khởi tạo model OCR theo tên được chọn và tạo hàm đọc ảnh tương ứng.
     def __init__(self, modelname: str | None = "easyocr") -> None:
         modelname = modelname or "easyocr"
 
@@ -10,6 +11,7 @@ class Model:
             case "easyocr":
                 from easyocr import Reader
 
+                # EasyOCR nhận ảnh dạng numpy array và trả về danh sách các đoạn text.
                 easyReader = Reader(["vi", "en"], gpu=True)
 
                 def reader(image: ndarray) -> str:
@@ -22,6 +24,7 @@ class Model:
             case "tesseract":
                 from pytesseract import image_to_string
 
+                # Tesseract nhận ảnh PIL Image và đọc text theo ngôn ngữ Việt + Anh.
                 def reader(image: Image) -> str:
                     return image_to_string(
                         image=image, lang="vie+eng", config="--psm 6"
@@ -38,6 +41,7 @@ class Model:
     def modelname(self) -> str:
         return self.__modelname
 
+    # Đọc text từ ảnh, tự chuyển kiểu dữ liệu nếu model đang dùng là EasyOCR.
     def read(self, image: Image) -> str:
         if self.__modelname == "tesseract":
             return self.__reader(image)

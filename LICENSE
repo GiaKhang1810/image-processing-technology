@@ -1,4 +1,4 @@
-MIT LICENSE
+# MIT LICENSE
 
 This project was developed for educational purposes and as a course report.
 
@@ -12,4 +12,4 @@ The sample dataset in this project is for testing the OCR model only.
 
 If using real invoice/receipt images, ensure they do not contain sensitive personal information or private data of others.
 
-© 2026 Gia Khang, ThanhTan, MinhQuan, KhanhDuy, CongHuy. All rights reserved.
+© 2026 Gia Khang. All rights reserved.
