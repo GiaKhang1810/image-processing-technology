@@ -92,8 +92,12 @@ class Preprocesser:
         coarse_step = 1.0
         fine_step = 0.2
 
+        # Dùng ảnh nhỏ để tìm góc xoay, giúp giảm thời gian xử lý.
+        score_source = image.copy()
+        score_source.thumbnail((900, 900), Image.Resampling.BILINEAR)
+
         # Chuẩn bị ảnh nhị phân để tính độ thẳng của các dòng chữ.
-        gray = ImageOps.grayscale(image)
+        gray = ImageOps.grayscale(score_source)
         gray = ImageOps.autocontrast(gray)
         gray_np = asarray(gray)
 

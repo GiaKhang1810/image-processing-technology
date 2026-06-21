@@ -1,5 +1,6 @@
 from PIL.Image import Image
 from numpy import array, ndarray
+from platform import processor
 
 
 class Model:
@@ -16,16 +17,15 @@ class Model:
                 if using_graphics_card:
                     print(f"Using graphics card: {cuda.get_device_name(0)}")
                 else:
-                    from platform import processor
-
                     print("Graphics card not avaible")
-                    print(f"Using processor: {processor()}")
+
+                print(f"Using processor: {processor()}")
 
                 # EasyOCR nhận ảnh dạng numpy array và trả về danh sách các đoạn text.
                 easyReader = Reader(["vi", "en"], gpu=using_graphics_card)
 
                 def reader(image: ndarray) -> str:
-                    content = easyReader.readtext(image, detail=0)
+                    content = easyReader.readtext(image=image, detail=0)
 
                     return " ".join(content)
 
@@ -37,7 +37,7 @@ class Model:
                 # Tesseract nhận ảnh PIL Image và đọc text theo ngôn ngữ Việt + Anh.
                 def reader(image: Image) -> str:
                     return image_to_string(
-                        image=image, lang="vie+eng", config="--psm 6"
+                        image=image, lang="vie+eng", config="--oem 1 --psm 6"
                     ).strip()
 
                 self.__reader = reader

@@ -1,6 +1,7 @@
 from csv import QUOTE_ALL
 from argparse import ArgumentParser
 from pathlib import Path
+from threading import Thread, Lock
 from traceback import print_exception
 from datetime import datetime
 from time import perf_counter
@@ -12,7 +13,7 @@ from pandas import read_csv, DataFrame
 from metrics import metricser
 from model import Model
 from preprocess import Preprocesser
-from utils import clean_text_for_csv, read_options, ModesDict
+from utils import clean_text_for_csv, read_options, get_limited_workers, ModesDict
 
 
 class BestOption(TypedDict):
@@ -62,10 +63,82 @@ def save_summary(
 
 class PipeLine:
     # Quản lý toàn bộ quá trình tiền xử lý ảnh, OCR và đánh giá kết quả.
-    def __init__(self, model: Model, preprocesser: Preprocesser, dataset: Path) -> None:
+    def __init__(
+        self,
+        model: Model,
+        preprocesser: Preprocesser,
+        dataset: Path,
+        quantitythreads: int,
+    ) -> None:
         self.__model = model
         self.__preprocesser = preprocesser
         self.__dataset = dataset
+        self.__quantitythreads = quantitythreads
+
+    # Tiền xử lý một ảnh.
+    def __preprocess_one(
+        self,
+        filename: str,
+        expected_text: str,
+        mode: str,
+        threshold: int,
+    ) -> dict:
+        start_preprocess = perf_counter()
+
+        image = self.__preprocesser.modify(
+            image_path=self.__dataset / filename,
+            mode=mode,
+            threshold=threshold,
+            name=filename,
+        )
+
+        preprocess_time = perf_counter() - start_preprocess
+
+        return {
+            "filename": filename,
+            "expected_text": expected_text,
+            "image": image,
+            "preprocess_time": preprocess_time,
+        }
+
+    # Chạy preprocess song song cho một batch ảnh bằng threading.
+    def __preprocess_batch(
+        self, batch: list[dict], mode: str, threshold: int
+    ) -> tuple[list[dict], float]:
+        results: list[dict] = []
+        errors: list[BaseException] = []
+        lock = Lock()
+        batch_start = perf_counter()
+
+        def worker(record: dict) -> None:
+            try:
+                item = self.__preprocess_one(
+                    filename=record["filename"],
+                    expected_text=record["expected_text"],
+                    mode=mode,
+                    threshold=threshold,
+                )
+                with lock:
+                    results.append(item)
+
+            except BaseException as error:
+                with lock:
+                    errors.append(error)
+
+        threads = [Thread(target=worker, args=(record,)) for record in batch]
+
+        for thread in threads:
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        batch_wall_time = perf_counter() - batch_start
+
+        if errors:
+            raise errors[0]
+
+        return results, batch_wall_time
 
     # Đánh giá một tập dữ liệu với một cấu hình tiền xử lý cụ thể.
     def evaluate(
@@ -77,51 +150,62 @@ class PipeLine:
         total_ocr_time = 0.0
         total_eval_time = perf_counter()
 
-        for _, row in df.iterrows():
-            filename: str = row["filename"]
-            expected_text: str = row["text"]
+        records = [
+            {
+                "filename": str(row["filename"]),
+                "expected_text": str(row["text"]),
+            }
+            for _, row in df.iterrows()
+        ]
 
-            # Đo thời gian tiền xử lý ảnh.
-            start_preprocess = perf_counter()
+        for start in range(0, len(records), self.__quantitythreads):
+            batch = records[start : start + self.__quantitythreads]
 
-            image = self.__preprocesser.modify(
-                image_path=self.__dataset / filename,
+            # Preprocess tối đa theo 40% số luồng của cpu
+            preprocessed_items, batch_preprocess_time = self.__preprocess_batch(
+                batch=batch,
                 mode=mode,
                 threshold=threshold,
-                name=filename,
             )
 
-            preprocess_time = perf_counter() - start_preprocess
+            total_preprocess_time += batch_preprocess_time
 
-            # Đo thời gian OCR.
-            start_ocr = perf_counter()
+            # OCR vẫn chạy tuần tự để tránh tranh GPU hoặc tạo nhiều model OCR.
+            for item in preprocessed_items:
+                filename = item["filename"]
+                expected_text = item["expected_text"]
+                image = item["image"]
+                preprocess_time = item["preprocess_time"]
 
-            predicted_text = self.__model.read(image)
+                start_ocr = perf_counter()
 
-            ocr_time = perf_counter() - start_ocr
+                predicted_text = self.__model.read(image)
 
-            # Tính điểm đánh giá giữa nhãn đúng và kết quả OCR.
-            accuracy_score, cer_score = metricser(expected_text, predicted_text)
+                ocr_time = perf_counter() - start_ocr
 
-            total_time = preprocess_time + ocr_time
-            total_preprocess_time += preprocess_time
-            total_ocr_time += ocr_time
+                accuracy_score, cer_score = metricser(
+                    expected_text,
+                    predicted_text,
+                )
 
-            rows.append(
-                {
-                    "filename": filename,
-                    "model": self.__model.modelname,
-                    "mode": mode,
-                    "threshold": threshold,
-                    "expected": clean_text_for_csv(expected_text),
-                    "predicted": clean_text_for_csv(predicted_text),
-                    "cer": cer_score,
-                    "accuracy": accuracy_score,
-                    "preprocess_time": preprocess_time,
-                    "ocr_time": ocr_time,
-                    "total_time": total_time,
-                }
-            )
+                total_time = preprocess_time + ocr_time
+                total_ocr_time += ocr_time
+
+                rows.append(
+                    {
+                        "filename": filename,
+                        "model": self.__model.modelname,
+                        "mode": mode,
+                        "threshold": threshold,
+                        "expected": clean_text_for_csv(expected_text),
+                        "predicted": clean_text_for_csv(predicted_text),
+                        "cer": cer_score,
+                        "accuracy": accuracy_score,
+                        "preprocess_time": preprocess_time,
+                        "ocr_time": ocr_time,
+                        "total_time": total_time,
+                    }
+                )
 
         result_df = DataFrame(rows)
         total_eval_time = perf_counter() - total_eval_time
@@ -211,7 +295,7 @@ class PipeLine:
 def main(modelname: str) -> None:
     print("===== START TRAINING =====")
     print(f"Using OCR: {modelname}")
-    
+
     options = read_options()
 
     # Chuẩn bị các đường dẫn chính từ file cấu hình.
@@ -247,10 +331,18 @@ def main(modelname: str) -> None:
             save_processed=options["preprocesser"]["save_processed"],
         )
 
+        # Kiểm số luồng được phép dùng để chạy, tối đa 40% số luồng CPU
+        quantitythreads = 1
+        if options["main"]["multithreading"]:
+            quantitythreads = get_limited_workers()
+
+        print(f"Using {quantitythreads} thread(s)")
+
         pipeline = PipeLine(
             model=model,
             preprocesser=prepresser,
             dataset=IMAGE_DIR,
+            quantitythreads=quantitythreads,
         )
 
         # Đọc nhãn và chia dữ liệu thành train/test.

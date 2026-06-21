@@ -1,3 +1,4 @@
+from os import cpu_count
 from re import sub
 from unicodedata import category, normalize
 from json import load, dump
@@ -47,10 +48,15 @@ class PreprocesserDict(TypedDict):
     modes: ModesDict
 
 
+class Main(TypedDict):
+    multithreading: bool
+
+
 class OptionsDict(TypedDict):
     dataset: DatasetDict
     output: OutputDict
     preprocesser: PreprocesserDict
+    main: Main
 
 
 # Cấu hình mặc định dùng để tạo options.json khi file chưa tồn tại.
@@ -83,6 +89,7 @@ default_options: OptionsDict = {
             "background": {"enable": True, "thresholds": [150]},
         },
     },
+    "main": {"multithreading": True},
 }
 
 
@@ -146,3 +153,11 @@ def safe_text(text: str) -> str:
 # Chuyển số thực thành chuỗi an toàn để đưa vào tên file.
 def safe_float(text: float) -> str:
     return str(text).replace(".", "p")
+
+
+# Tính số worker tối đa, không vượt quá 40% số logical CPU thread của máy.
+def get_limited_workers() -> int:
+    total_threads = cpu_count() or 1
+    max_workers = int(total_threads * 0.4)
+
+    return max(1, max_workers)

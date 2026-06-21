@@ -1,6 +1,6 @@
 # Image Processing Technology - OCR Receipt Recognition
 
-**Version:** 1.0.1
+**Version:** 1.0.5
 **Status:** Stable
 **Author:** [Gia Khang](https://github.com/GiaKhang1810)
 **Purpose:** Course project, study, research and OCR demonstration.
@@ -329,6 +329,9 @@ Ví dụ cấu hình hiện tại:
                 "thresholds": [100, 120, 140, 150, 160, 180, 200]
             }
         }
+    },
+    "main": {
+        "multithreading": true
     }
 }
 ```
@@ -353,6 +356,7 @@ Ví dụ cấu hình hiện tại:
 | `median_filter_size`     | Kích thước bộ lọc khử nhiễu              |
 | `background_blur_radius` | Bán kính blur để ước lượng nền           |
 | `modes`                  | Các mode preprocess cần thử nghiệm       |
+| `multithreading`         | Sử dụng 40% số luồng CPU                 |
 
 Lưu ý: Key đang dùng trong project là `preprocesser`, không phải `preprocessor`. Không nên tự đổi tên key nếu chưa sửa code.
 
