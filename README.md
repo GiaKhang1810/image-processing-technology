@@ -1,6 +1,6 @@
 # Image Processing Technology - OCR Receipt Recognition
 
-**Version:** 1.0.5
+**Version:** 1.0.6
 **Status:** Stable
 **Author:** [Gia Khang](https://github.com/GiaKhang1810)
 **Purpose:** Course project, study, research and OCR demonstration.
@@ -55,6 +55,7 @@ Lưu ý: Trong project này, bước `training` không phải là fine-tune mode
 | pathlib           | Quản lý đường dẫn file/thư mục           |
 | csv               | Ghi CSV có quote để tránh vỡ dòng        |
 | time.perf_counter | Đo thời gian preprocess và OCR           |
+| threading         | Sử dụng đa luồng CPU                     |
 
 ---
 
