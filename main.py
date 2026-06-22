@@ -328,6 +328,7 @@ def main(modelname: str) -> None:
             contrast_factor=options["preprocesser"]["contrast_factor"],
             background_blur_radius=options["preprocesser"]["background_blur_radius"],
             auto_rotate=options["preprocesser"]["auto_rotate"],
+            auto_sharpen=options["preprocesser"]["auto_sharpen"],
             save_processed=options["preprocesser"]["save_processed"],
         )
 

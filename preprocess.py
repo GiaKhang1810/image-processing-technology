@@ -1,8 +1,22 @@
 from pathlib import Path
-from numpy import asarray, arange, clip, uint8
+from numpy import array, asarray, clip, float32, uint8
 from PIL import Image, ImageOps, ImageEnhance, ImageFilter
+from cv2 import (
+    MORPH_CLOSE,
+    MORPH_RECT,
+    THRESH_BINARY_INV,
+    THRESH_OTSU,
+    filter2D,
+    findNonZero,
+    getStructuringElement,
+    minAreaRect,
+    morphologyEx,
+    threshold as thresholder,
+)
 
 from utils import safe_float, safe_text
+
+valid_modes = {"raw", "background", "gray", "contrast", "binary"}
 
 
 class Preprocesser:
@@ -15,6 +29,7 @@ class Preprocesser:
         contrast_factor: float = 2.0,
         background_blur_radius: int = 25,
         auto_rotate: bool = True,
+        auto_sharpen: bool = True,
         save_processed: bool = True,
     ) -> None:
         if processed_dir is not None and not processed_dir.is_dir():
@@ -26,6 +41,7 @@ class Preprocesser:
         self.__contrast_factor = contrast_factor
         self.__background_blur_radius = background_blur_radius
         self.__auto_rotate = auto_rotate
+        self.__auto_sharpen = auto_sharpen
         self.__save_processed = save_processed
 
     # Lưu ảnh đã xử lý với tên file chứa đầy đủ thông tin cấu hình.
@@ -60,6 +76,24 @@ class Preprocesser:
 
         image.save(endpoint)
 
+    # Cải thiện độ nét
+    def __sharpen(self, image: Image.Image) -> Image.Image:
+        gray = ImageOps.grayscale(image)
+
+        kernel = array(
+            [
+                [0, -1, 0],
+                [-1, 5, -1],
+                [0, -1, 0],
+            ],
+            dtype=float32,
+        )
+
+        image_np = array(gray)
+        image_np = filter2D(image_np, -1, kernel)
+
+        return Image.fromarray(image_np)
+
     # Xóa nền bằng cách làm mờ nền, chuẩn hóa độ sáng rồi tăng tương phản ảnh.
     def __remove(self, image: Image.Image) -> Image.Image:
         gray = ImageOps.grayscale(image)
@@ -82,66 +116,58 @@ class Preprocesser:
         removed = ImageEnhance.Contrast(removed).enhance(
             min(self.__contrast_factor, 1.5)
         )
-        removed = removed.filter(ImageFilter.SHARPEN)
 
         return removed
 
     # Tự động tìm góc xoay tốt nhất để làm thẳng dòng chữ trong ảnh.
     def __rotate(self, image: Image.Image) -> Image.Image:
         max_angle = 15.0
-        coarse_step = 1.0
-        fine_step = 0.2
 
-        # Dùng ảnh nhỏ để tìm góc xoay, giúp giảm thời gian xử lý.
+        # Dùng ảnh nhỏ để xác định góc nghiêng, tránh xử lý trực tiếp trên ảnh lớn.
         score_source = image.copy()
         score_source.thumbnail((900, 900), Image.Resampling.BILINEAR)
 
-        # Chuẩn bị ảnh nhị phân để tính độ thẳng của các dòng chữ.
         gray = ImageOps.grayscale(score_source)
         gray = ImageOps.autocontrast(gray)
         gray_np = asarray(gray)
 
-        binary_np = ((gray_np < 200) * 255).astype(uint8)
-        binary_image = Image.fromarray(binary_np)
+        # Tạo ma trận nhị phân 2D: chữ màu trắng, nền màu đen.
+        _, binary_np = thresholder(
+            gray_np,
+            0,
+            255,
+            THRESH_BINARY_INV + THRESH_OTSU,
+        )
 
-        # Góc có phương sai histogram ngang cao hơn thường làm dòng chữ thẳng hơn.
-        def score_angle(angle: float) -> float:
-            rotated = binary_image.rotate(
-                angle,
-                resample=Image.Resampling.BICUBIC,
-                expand=True,
-                fillcolor=0,
-            )
+        # Nối các pixel chữ gần nhau lại để OpenCV dễ xác định vùng chữ.
+        kernel = getStructuringElement(MORPH_RECT, (30, 5))
+        binary_np = morphologyEx(binary_np, MORPH_CLOSE, kernel)
 
-            rotated_np = asarray(rotated)
-            horizontal_hist = rotated_np.sum(axis=1)
+        # Lấy tọa độ tất cả pixel chữ trong ma trận 2D.
+        points = findNonZero(binary_np)
 
-            return float(horizontal_hist.var())
+        if points is None:
+            return image
 
-        best_angle = 0.0
-        best_score = -1.0
+        # Tìm hình chữ nhật nhỏ nhất bao quanh vùng chữ và lấy góc nghiêng.
+        rect = minAreaRect(points)
+        angle = float(rect[-1])
 
-        # Quét thô để tìm vùng góc tốt nhất.
-        for angle in arange(-max_angle, max_angle + coarse_step, coarse_step):
-            current_score = score_angle(float(angle))
+        # Chuẩn hóa góc trả về của OpenCV về góc cần xoay ảnh.
 
-            if current_score > best_score:
-                best_score = current_score
-                best_angle = float(angle)
+        if angle < -45:
+            rotate_angle = -(90 + angle)
+        elif angle > 45:
+            rotate_angle = 90 - angle
+        else:
+            rotate_angle = -angle
 
-        fine_start = best_angle - coarse_step
-        fine_end = best_angle + coarse_step + fine_step
-
-        # Quét tinh quanh góc tốt nhất để tăng độ chính xác.
-        for angle in arange(fine_start, fine_end, fine_step):
-            current_score = score_angle(float(angle))
-
-            if current_score > best_score:
-                best_score = current_score
-                best_angle = float(angle)
+        # Nếu góc quá lớn thì bỏ qua để tránh xoay sai ảnh.
+        if abs(rotate_angle) > max_angle:
+            return image
 
         image = image.rotate(
-            angle=best_angle,
+            angle=rotate_angle,
             resample=Image.Resampling.BICUBIC,
             expand=True,
             fillcolor=(255, 255, 255),
@@ -153,17 +179,18 @@ class Preprocesser:
     def modify(
         self, image_path: str, mode: str, threshold: int, name: str | None
     ) -> Image.Image:
+        if mode not in valid_modes:
+            raise ValueError(f"Invalid preprocess mode: {mode}")
+
         image = Image.open(image_path)
         image = image.convert("RGB")
 
         if mode == "raw":
             self.__save(image=image, name=name, mode=mode, threshold=threshold)
-
             return image
 
         resize = self.__resize_scale
         width, height = image.size
-
         image = image.resize(
             (width * resize, height * resize),
             Image.Resampling.LANCZOS,
@@ -174,32 +201,32 @@ class Preprocesser:
 
         if mode == "background":
             image = self.__remove(image)
-            self.__save(image=image, name=name, mode=mode, threshold=threshold)
 
+        if self.__auto_sharpen:
+            image = self.__sharpen(image)
+
+            self.__save(image=image, name=name, mode=mode, threshold=threshold)
             return image
 
-        # Các mode còn lại dùng ảnh xám làm nền xử lý.
         image = ImageOps.grayscale(image)
+
+        image = ImageEnhance.Contrast(image).enhance(min(self.__contrast_factor, 1.5))
+
+        if self.__auto_sharpen:
+            image = self.__sharpen(image)
 
         if mode == "gray":
             self.__save(image=image, name=name, mode=mode, threshold=threshold)
-
             return image
-
-        image = ImageEnhance.Contrast(image).enhance(min(self.__contrast_factor, 1.5))
-        image = image.filter(ImageFilter.SHARPEN)
 
         if mode == "contrast":
             self.__save(image=image, name=name, mode=mode, threshold=threshold)
-
             return image
 
-        # Binary dùng thêm lọc nhiễu trung vị trước khi nhị phân hóa ảnh.
         image = image.filter(ImageFilter.MedianFilter(size=self.__median_filter_size))
 
         if mode == "binary":
             image = image.point(lambda pixel: 255 if pixel > threshold else 0)
 
         self.__save(image=image, name=name, mode=mode, threshold=threshold)
-
         return image

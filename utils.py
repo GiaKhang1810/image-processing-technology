@@ -41,6 +41,7 @@ class ModesDict(TypedDict):
 class PreprocesserDict(TypedDict):
     save_processed: bool
     auto_rotate: bool
+    auto_sharpen: bool
     resize_scale: int
     contrast_factor: float
     median_filter_size: int
@@ -77,6 +78,7 @@ default_options: OptionsDict = {
     "preprocesser": {
         "save_processed": True,
         "auto_rotate": True,
+        "auto_sharpen": True,
         "resize_scale": 2,
         "contrast_factor": 2.0,
         "median_filter_size": 3,
