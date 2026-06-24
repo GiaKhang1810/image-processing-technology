@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BillScan - Quét hóa đơn AI</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Bebas+Neue&family=Noto+Sans:wght@400;700;900&display=swap');
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --yellow: #FFD700;
+            --yellow-dark: #E6B800;
+            --black: #0a0a0a;
+            --black2: #141414;
+            --black3: #1e1e1e;
+            --red: #D62828;
+            --white: #F5F0E8;
+            --gray: #888;
+        }
+
+        body {
+            background: var(--yellow);
+            font-family: 'Noto Sans', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── HEADER ── */
+        header {
+            background: var(--black);
+            padding: 0 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 56px;
+            border-bottom: 3px solid var(--yellow);
+        }
+
+        .logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.8rem;
+            color: var(--yellow);
+            letter-spacing: .12em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-dot {
+            width: 10px; height: 10px;
+            background: var(--red);
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 0;
+        }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            border-left: 1px solid #333;
+            color: var(--gray);
+            font-size: .75rem;
+            font-weight: 700;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            padding: 0 18px;
+            height: 56px;
+            cursor: pointer;
+            transition: color .15s, background .15s;
+        }
+
+        .nav-btn:hover { color: var(--yellow); background: #1a1a1a; }
+
+        /* ── LAYOUT ── */
+        .page {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            min-height: calc(100vh - 56px);
+        }
+
+        /* ── SIDEBAR ── */
+        .sidebar {
+            background: var(--black2);
+            border-right: 3px solid var(--black);
+            padding: 28px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .sidebar-label {
+            font-size: .65rem;
+            font-weight: 900;
+            letter-spacing: .18em;
+            text-transform: uppercase;
+            color: #444;
+            padding: 0 20px 10px;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            color: #666;
+            font-size: .82rem;
+            font-weight: 700;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: all .15s;
+        }
+
+        .sidebar-item:hover { color: var(--yellow); background: #1a1a1a; }
+
+        .sidebar-item.active {
+            color: var(--yellow);
+            background: #1a1a1a;
+            border-left-color: var(--yellow);
+        }
+
+        .sidebar-icon {
+            width: 20px; height: 20px;
+            border: 2px solid currentColor;
+            border-radius: 3px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 900;
+            flex-shrink: 0;
+        }
+
+        /* ── MAIN CONTENT ── */
+        .main {
+            background: var(--yellow);
+            padding: 32px 36px;
+        }
+
+        /* ── PAGE TITLE ── */
+        .page-title {
+            margin-bottom: 28px;
+        }
+
+        .page-eyebrow {
+            font-size: .7rem;
+            font-weight: 900;
+            letter-spacing: .2em;
+            text-transform: uppercase;
+            color: var(--black3);
+            opacity: .6;
+            margin-bottom: 4px;
+        }
+
+        .page-heading {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 3.2rem;
+            line-height: .95;
+            color: var(--black);
+            letter-spacing: .04em;
+        }
+
+        .page-heading span {
+            color: var(--red);
+        }
+
+        /* ── UPLOAD CARD ── */
+        .card {
+            background: var(--black);
+            border: 3px solid var(--black);
+            border-radius: 0;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .card-header {
+            background: var(--black3);
+            padding: 10px 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 2px solid #333;
+        }
+
+        .card-label {
+            font-size: .68rem;
+            font-weight: 900;
+            letter-spacing: .18em;
+            text-transform: uppercase;
+            color: var(--yellow);
+        }
+
+        .card-num {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: .9rem;
+            color: #444;
+            letter-spacing: .1em;
+            margin-right: 4px;
+        }
+
+        .card-body { padding: 20px 18px; }
+
+        /* ── DROP ZONE ── */
+        #dropzone {
+            border: 2px dashed #444;
+            padding: 36px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .2s, background .2s;
+            position: relative;
+        }
+
+        #dropzone:hover, #dropzone.drag-over {
+            border-color: var(--yellow);
+            background: #1a1a1a;
+        }
+
+        #dropzone input[type="file"] {
+            position: absolute; inset: 0;
+            opacity: 0; cursor: pointer;
+        }
+
+        .drop-icon-box {
+            width: 52px; height: 52px;
+            border: 3px solid var(--yellow);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 14px;
+            font-size: 1.4rem;
+        }
+
+        .drop-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.3rem;
+            letter-spacing: .1em;
+            color: var(--white);
+            margin-bottom: 4px;
+        }
+
+        .drop-sub {
+            font-size: .75rem;
+            color: #666;
+            letter-spacing: .06em;
+        }
+
+        .drop-sub strong { color: var(--yellow); }
+
+        /* ── FILE ROW ── */
+        .file-row {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 10px 14px;
+            margin-top: 14px;
+        }
+
+        .file-row-icon { font-size: 1.1rem; }
+
+        .file-row-name {
+            flex: 1;
+            font-size: .82rem;
+            color: var(--white);
+            font-weight: 700;
+            letter-spacing: .04em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .remove-btn {
+            background: none; border: none;
+            color: #555; font-size: .9rem;
+            cursor: pointer; padding: 2px 6px;
+        }
+        .remove-btn:hover { color: var(--red); }
+
+        /* ── PREVIEW ── */
+        #preview-wrap {
+            display: none;
+            margin-top: 14px;
+            border: 2px solid #333;
+            overflow: hidden;
+            text-align: center;
+            background: #0a0a0a;
+        }
+        #preview-wrap img {
+            max-width: 100%; max-height: 220px;
+            display: block; margin: 0 auto;
+            object-fit: contain;
+        }
+
+        /* ── SCAN BUTTON ── */
+        #scan-btn {
+            width: 100%;
+            background: var(--yellow);
+            color: var(--black);
+            border: none;
+            padding: 16px;
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.4rem;
+            letter-spacing: .14em;
+            cursor: pointer;
+            transition: background .15s, transform .1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        #scan-btn:hover:not(:disabled) {
+            background: var(--yellow-dark);
+            transform: translateY(-1px);
+        }
+
+        #scan-btn:disabled {
+            background: #333;
+            color: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── ERROR ── */
+        #error-box {
+            display: none;
+            background: #2a0a0a;
+            border-left: 4px solid var(--red);
+            padding: 12px 16px;
+            font-size: .82rem;
+            color: #ff8080;
+            margin-top: 14px;
+            letter-spacing: .04em;
+        }
+
+        /* ── RESULT ── */
+        #result { display: none; }
+
+        .result-header {
+            background: var(--red);
+            padding: 10px 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .result-label {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.1rem;
+            letter-spacing: .12em;
+            color: var(--white);
+        }
+
+        .result-badge {
+            background: var(--yellow);
+            color: var(--black);
+            font-size: .65rem;
+            font-weight: 900;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            padding: 2px 8px;
+            margin-left: auto;
+        }
+
+        /* Raw text output */
+        #raw-text-wrap {
+            background: var(--black);
+            padding: 20px 18px;
+        }
+
+        #raw-text {
+            font-family: 'Courier New', monospace;
+            font-size: .88rem;
+            color: var(--yellow);
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.75;
+            min-height: 80px;
+        }
+
+        /* ── ACTION ROW ── */
+        .action-row {
+            display: flex;
+            gap: 0;
+            border-top: 2px solid #222;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 13px 10px;
+            background: var(--black3);
+            border: none;
+            border-right: 1px solid #222;
+            color: #888;
+            font-size: .72rem;
+            font-weight: 900;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background .15s, color .15s;
+        }
+
+        .action-btn:last-child { border-right: none; }
+        .action-btn:hover { background: #2a2a2a; color: var(--yellow); }
+
+        .action-btn.excel:hover { color: #48bb78; }
+        .action-btn.reload:hover { color: var(--red); }
+
+        /* ── API CONFIG ── */
+        .api-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .api-label {
+            font-size: .65rem;
+            font-weight: 900;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: #555;
+            white-space: nowrap;
+        }
+
+        .api-input {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: var(--white);
+            font-family: 'Courier New', monospace;
+            font-size: .78rem;
+            padding: 8px 12px;
+            outline: none;
+            transition: border-color .2s;
+        }
+
+        .api-input:focus { border-color: var(--yellow); }
+
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #333;
+            flex-shrink: 0;
+            transition: background .3s;
+        }
+        .status-dot.online  { background: #48bb78; }
+        .status-dot.offline { background: var(--red); }
+
+        /* ── DIAGONAL ACCENT ── */
+        .accent-stripe {
+            height: 6px;
+            background: repeating-linear-gradient(
+                -45deg,
+                var(--red) 0px, var(--red) 6px,
+                var(--black) 6px, var(--black) 12px
+            );
+            margin-bottom: 20px;
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 680px) {
+            .page { grid-template-columns: 1fr; }
+            .sidebar { display: none; }
+            .main { padding: 20px 16px; }
+            .page-heading { font-size: 2.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">
+        <div class="logo-dot"></div>
+        BILLSCAN
+    </div>
+    <nav class="nav-links">
+        <button class="nav-btn">Lịch sử</button>
+        <button class="nav-btn">Cài đặt</button>
+    </nav>
+</header>
+
+<div class="page">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="sidebar-label">Menu</div>
+        <div class="sidebar-item active">
+            <div class="sidebar-icon">S</div>
+            Quét bill
+        </div>
+        <div class="sidebar-item">
+            <div class="sidebar-icon">H</div>
+            Lịch sử
+        </div>
+        <div class="sidebar-item">
+            <div class="sidebar-icon">C</div>
+            Cài đặt
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <div class="page-title">
+            <div class="page-eyebrow">OCR · Nhận dạng văn bản</div>
+            <div class="page-heading">QUÉT BILL<br><span>THANH TOÁN.</span></div>
+        </div>
+
+        <div class="accent-stripe"></div>
+
+        <!-- UPLOAD CARD -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-num">01</span>
+                <span class="card-label">Cấu hình API</span>
+            </div>
+            <div class="card-body">
+                <div class="api-row">
+                    <span class="api-label">Endpoint</span>
+                    <input class="api-input" id="api-url" type="text" value="http://localhost:8000/ocr" spellcheck="false" />
+                    <div class="status-dot" id="status-dot"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-num">02</span>
+                <span class="card-label">Tải ảnh lên</span>
+            </div>
+            <div class="card-body">
+                <div id="dropzone">
+                    <input type="file" id="file-input" accept="image/*,.pdf" />
+                    <div class="drop-icon-box">↑</div>
+                    <div class="drop-title">KÉO THẢ ẢNH VÀO ĐÂY</div>
+                    <div class="drop-sub">JPG · PNG · PDF &nbsp;|&nbsp; <strong>tối đa 10MB</strong></div>
+                </div>
+
+                <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" />
+
+                <div class="file-row" id="file-box">
+                    <span class="file-row-icon">🖼</span>
+                    <span class="file-row-name" id="file-name">—</span>
+                    <button class="remove-btn" onclick="removeFile()">✕</button>
+                </div>
+
+                <div id="preview-wrap">
+                    <img id="preview-img" src="" alt="Xem trước" />
+                </div>
+            </div>
+        </div>
+
+        <div id="error-box"></div>
+
+        <button id="scan-btn" disabled onclick="runOCR()">
+            ⬡ &nbsp;QUÉT &amp; PHÂN TÍCH BILL
+        </button>
+
+        <!-- RESULT -->
+        <div class="card" id="result" style="margin-top: 20px;">
+            <div class="result-header">
+                <span class="result-label">KẾT QUẢ NHẬN DẠNG</span>
+                <span class="result-badge">OCR</span>
+            </div>
+            <div id="raw-text-wrap">
+                <pre id="raw-text"></pre>
+            </div>
+            <div class="action-row">
+                <button class="action-btn" onclick="copyText()">Sao chép</button>
+                <button class="action-btn excel" onclick="exportExcel()">Xuất Excel</button>
+                <button class="action-btn reload" onclick="resetAll()">Quét lại</button>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script>
+    const API_URL_INPUT = document.getElementById("api-url");
+    const fileInput     = document.getElementById("file-input");
+    const cameraInput   = document.getElementById("camera-input");
+    const dropzone      = document.getElementById("dropzone");
+    const fileBox       = document.getElementById("file-box");
+    const fileName      = document.getElementById("file-name");
+    const previewWrap   = document.getElementById("preview-wrap");
+    const previewImg    = document.getElementById("preview-img");
+    const scanBtn       = document.getElementById("scan-btn");
+    const errorBox      = document.getElementById("error-box");
+    const result        = document.getElementById("result");
+    const statusDot     = document.getElementById("status-dot");
+
+    let selectedFile = null;
+
+    // Drag & drop
+    dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("drag-over"); });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag-over"));
+    dropzone.addEventListener("drop", e => {
+        e.preventDefault();
+        dropzone.classList.remove("drag-over");
+        if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener("change", () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+    cameraInput.addEventListener("change", () => { if (cameraInput.files[0]) handleFile(cameraInput.files[0]); });
+
+    function handleFile(file) {
+        if (file.size > 10 * 1024 * 1024) { showError("File quá lớn. Tối đa 10MB."); return; }
+        selectedFile = file;
+        fileName.textContent = file.name;
+        fileBox.style.display = "flex";
+        scanBtn.disabled = false;
+        hideError();
+        result.style.display = "none";
+        if (file.type.startsWith("image/")) {
+            previewImg.src = URL.createObjectURL(file);
+            previewWrap.style.display = "block";
+        } else {
+            previewWrap.style.display = "none";
+        }
+    }
+
+    function removeFile() {
+        selectedFile = null;
+        fileInput.value = "";
+        cameraInput.value = "";
+        fileBox.style.display = "none";
+        previewWrap.style.display = "none";
+        scanBtn.disabled = true;
+        result.style.display = "none";
+        hideError();
+    }
+
+    // API health ping
+    async function pingApi() {
+        const base = API_URL_INPUT.value.replace(/\/ocr$/, "");
+        try {
+            const r = await fetch(base + "/health", { signal: AbortSignal.timeout(3000) });
+            statusDot.className = "status-dot " + (r.ok ? "online" : "offline");
+        } catch { statusDot.className = "status-dot offline"; }
+    }
+    API_URL_INPUT.addEventListener("change", pingApi);
+    pingApi();
+    setInterval(pingApi, 15000);
+
+    // OCR
+    async function runOCR() {
+        if (!selectedFile) return;
+        setLoading(true);
+        hideError();
+        result.style.display = "none";
+
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+
+        try {
+            const res = await fetch(API_URL_INPUT.value, { method: "POST", body: formData });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: res.statusText }));
+                throw new Error(err.detail || "HTTP " + res.status);
+            }
+            const data = await res.json();
+            document.getElementById("raw-text").textContent = data.text || "(Không nhận ra văn bản)";
+            result.style.display = "block";
+            result.scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch (err) {
+            showError(err.message.includes("fetch") || err.message.includes("Failed")
+                ? "Không kết nối được server. Kiểm tra server đang chạy tại: " + API_URL_INPUT.value
+                : "Lỗi: " + err.message);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function setLoading(on) {
+        scanBtn.disabled = on;
+        scanBtn.textContent = on ? "⏳  ĐANG XỬ LÝ..." : "⬡  QUÉT & PHÂN TÍCH BILL";
+    }
+
+    function showError(msg) { errorBox.textContent = "⚠ " + msg; errorBox.style.display = "block"; }
+    function hideError() { errorBox.style.display = "none"; }
+
+    function copyText() {
+        navigator.clipboard.writeText(document.getElementById("raw-text").textContent).then(() => {
+            const btn = document.querySelector(".action-btn");
+            btn.textContent = "✓ ĐÃ SAO CHÉP";
+            setTimeout(() => btn.textContent = "Sao chép", 2000);
+        });
+    }
+
+    function exportExcel() {
+        const text = document.getElementById("raw-text").textContent;
+        const csv = "data:text/csv;charset=utf-8,\uFEFF" + text;
+        const a = document.createElement("a");
+        a.href = encodeURI(csv);
+        a.download = "billscan_" + Date.now() + ".csv";
+        a.click();
+    }
+
+    function resetAll() {
+        removeFile();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+</script>
+
+</body>
+</html>
